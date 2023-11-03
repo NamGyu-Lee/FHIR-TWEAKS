@@ -40,10 +40,13 @@ public class TerminologyInterceptor {
 	 * @param theResponseDetails the response details
 	 * @param theResource        the resource
 	 */
+
+
 	@Hook(value = Pointcut.SERVER_INCOMING_REQUEST_PRE_HANDLED)
 	public void handleIncommingRequestPreHandleWithCodeSystem(RequestDetails theRequestDetails, ResponseDetails theResponseDetails, IBaseResource theResource) {
-		ourLog.debug(" 1.1.1. SERVER_INCOMING_REQUEST_PRE_HANDLED.Authoriziation Interceptor Handler");
-		ourLog.debug("Request Path : " + theRequestDetails.getRequestPath());
+		/*
+		ourLog.info(" 1.1.1. SERVER_INCOMING_REQUEST_PRE_HANDLED.Authoriziation Interceptor Handler");
+		ourLog.info("Request Path : " + theRequestDetails.getRequestPath());
 
 		String requestDetail = theRequestDetails.getRequestPath();
 
@@ -57,9 +60,7 @@ public class TerminologyInterceptor {
 				theRequestDetails.addParameter("_summary", arg);
 			}
 		}
-
-
-
+		*/
 
 	}
 

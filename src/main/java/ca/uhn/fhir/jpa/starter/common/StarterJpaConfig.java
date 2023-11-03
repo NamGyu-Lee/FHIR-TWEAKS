@@ -8,6 +8,7 @@ import ca.uhn.fhir.batch2.model.JobDefinition;
 import ca.uhn.fhir.context.ConfigurationException;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.context.FhirVersionEnum;
+import ca.uhn.fhir.context.support.DefaultProfileValidationSupport;
 import ca.uhn.fhir.context.support.IValidationSupport;
 
 import ca.uhn.fhir.interceptor.api.IInterceptorBroadcaster;
@@ -15,6 +16,7 @@ import ca.uhn.fhir.jpa.api.IDaoRegistry;
 import ca.uhn.fhir.jpa.api.config.JpaStorageSettings;
 import ca.uhn.fhir.jpa.api.config.ThreadPoolFactoryConfig;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
+import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
 import ca.uhn.fhir.jpa.api.dao.IFhirSystemDao;
 import ca.uhn.fhir.jpa.binary.interceptor.BinaryStorageInterceptor;
 import ca.uhn.fhir.jpa.binary.provider.BinaryAccessProvider;
@@ -24,6 +26,7 @@ import ca.uhn.fhir.jpa.config.util.ResourceCountCacheUtil;
 import ca.uhn.fhir.jpa.config.util.ValidationSupportConfigUtil;
 import ca.uhn.fhir.jpa.dao.FulltextSearchSvcImpl;
 import ca.uhn.fhir.jpa.dao.IFulltextSearchSvc;
+import ca.uhn.fhir.jpa.dao.JpaPersistedResourceValidationSupport;
 import ca.uhn.fhir.jpa.dao.search.HSearchSortHelperImpl;
 import ca.uhn.fhir.jpa.dao.search.IHSearchSortHelper;
 import ca.uhn.fhir.jpa.delete.ThreadSafeResourceDeleterSvc;
@@ -39,6 +42,7 @@ import ca.uhn.fhir.jpa.provider.dstu3.JpaConformanceProviderDstu3;
 import ca.uhn.fhir.jpa.search.DatabaseBackedPagingProvider;
 import ca.uhn.fhir.jpa.search.IStaleSearchDeletingSvc;
 import ca.uhn.fhir.jpa.search.StaleSearchDeletingSvcImpl;
+import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
 import ca.uhn.fhir.jpa.starter.AppProperties;
 import ca.uhn.fhir.jpa.starter.annotations.OnCorsPresent;
 import ca.uhn.fhir.jpa.starter.annotations.OnImplementationGuidesPresent;
@@ -57,7 +61,10 @@ import ca.uhn.fhir.mdm.provider.MdmProviderLoader;
 import ca.uhn.fhir.narrative.DefaultThymeleafNarrativeGenerator;
 import ca.uhn.fhir.narrative2.NullNarrativeGenerator;
 import ca.uhn.fhir.rest.api.IResourceSupportedSvc;
+import ca.uhn.fhir.rest.api.SearchTotalModeEnum;
+import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.openapi.OpenApiInterceptor;
+import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.*;
 import ca.uhn.fhir.rest.server.interceptor.*;
 import ca.uhn.fhir.rest.server.interceptor.partition.RequestTenantPartitionInterceptor;
@@ -67,7 +74,16 @@ import ca.uhn.fhir.rest.server.util.ISearchParamRegistry;
 import ca.uhn.fhir.validation.IValidatorModule;
 import ca.uhn.fhir.validation.ResultSeverityEnum;
 import com.google.common.base.Strings;
-import org.hl7.fhir.common.hapi.validation.support.CachingValidationSupport;
+import org.hl7.fhir.ImplementationGuide;
+import org.hl7.fhir.common.hapi.validation.support.*;
+import org.hl7.fhir.common.hapi.validation.validator.FhirInstanceValidator;
+import org.hl7.fhir.instance.model.api.IBaseCoding;
+import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.r4.model.CodeSystem;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.StructureDefinition;
+import org.hl7.fhir.r4.model.ValueSet;
+import org.hl7.fhir.utilities.npm.NpmPackage;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
@@ -370,8 +386,97 @@ public class StarterJpaConfig {
 			fhirServer.registerInterceptor(binaryStorageInterceptor);
 		}
 
-		// Validation
+		// 해당 서버가 Terminology 서버를 바라보도록 구성
+		FhirContext ctx = fhirServer.getFhirContext();
+		RemoteTerminologyServiceValidationSupport remoteTermSvc = new RemoteTerminologyServiceValidationSupport(ctx);
+		remoteTermSvc.setBaseUrl("http://122.153.160.23:6010/fhir"); // healthall terminology
 
+		// 1. PrePopulation Validaton 정의
+		Map<String, PackageInstallationSpec> ad = appProperties.getImplementationGuides();
+		PrePopulatedValidationSupport prePopulatedSupport = new PrePopulatedValidationSupport(ctx);
+
+		// 2. 서버 내 Structure Definion, ValieSet 조회
+		// 2.1. StructureDef
+		IBaseCoding serachCodeForStructureDef = new Coding();
+		serachCodeForStructureDef.setCode("active");
+		TokenParam searchToken = new TokenParam(serachCodeForStructureDef);
+		SearchParameterMap searchParameterMapForStructureDef = new SearchParameterMap().add(StructureDefinition.SP_STATUS , searchToken);
+		searchParameterMapForStructureDef.setSearchTotalMode(SearchTotalModeEnum.ACCURATE);
+		searchParameterMapForStructureDef.setCount(1000);
+
+		IFhirResourceDao structureDefinitionResourceProvider = daoRegistry.getResourceDao("StructureDefinition");
+		IBundleProvider results = structureDefinitionResourceProvider.search(searchParameterMapForStructureDef);
+
+		// 2.2. ValueSet
+		IBaseCoding serachCodeForValueSet = new Coding();
+		serachCodeForValueSet.setCode("active");
+		TokenParam searchTokenForValueSet = new TokenParam(serachCodeForValueSet);
+		SearchParameterMap searchParameterMapForValueSet = new SearchParameterMap().add(ValueSet.SP_STATUS, searchTokenForValueSet);
+		searchParameterMapForValueSet.setSearchTotalMode(SearchTotalModeEnum.ACCURATE);
+		searchParameterMapForValueSet.setCount(1000);
+
+		IFhirResourceDao resourceProviderForValueSet = daoRegistry.getResourceDao("ValueSet");
+		IBundleProvider resultsValueSet = resourceProviderForValueSet.search(searchParameterMapForValueSet);
+
+		// 2.3. CodeSystem
+		IBaseCoding serachCodeForCodeSystem = new Coding();
+		serachCodeForCodeSystem.setCode("active");
+		TokenParam searchTokenForCodeSystem = new TokenParam(serachCodeForCodeSystem);
+		SearchParameterMap searchParameterMapForCodeSystem = new SearchParameterMap().add(CodeSystem.SP_STATUS, searchTokenForCodeSystem);
+		searchParameterMapForCodeSystem.setSearchTotalMode(SearchTotalModeEnum.ACCURATE);
+		searchParameterMapForCodeSystem.setCount(1000);
+
+		IFhirResourceDao resourceProviderForCodeSystem = daoRegistry.getResourceDao("CodeSystem");
+		IBundleProvider resultsCodeSystem = resourceProviderForCodeSystem.search(searchParameterMapForCodeSystem);
+
+		// 3. 적용
+		for(IBaseResource eachResource : results.getAllResources()){
+			StructureDefinition def = (StructureDefinition)eachResource;
+			ourLog.info(" > prePopulated StructureDefinition url : " + def.getUrl());
+			prePopulatedSupport.addStructureDefinition(def);
+		}
+
+		for(IBaseResource eachResource : resultsValueSet.getAllResources()){
+			ValueSet vs = (ValueSet)eachResource;
+			ourLog.info(" > prePopulated ValueSet url : " + vs.getUrl());
+			prePopulatedSupport.addValueSet(vs);
+		}
+
+		for(IBaseResource eachResource : resultsCodeSystem.getAllResources()){
+			CodeSystem cs = (CodeSystem)eachResource;
+			ourLog.info(" > prePopulated CodeSystem url : " + cs.getUrl());
+			prePopulatedSupport.addCodeSystem(cs);
+		}
+
+		ValidationSupportChain validationSupportChain = new ValidationSupportChain(
+			 new DefaultProfileValidationSupport(ctx)
+			,new CommonCodeSystemsTerminologyService(ctx)
+			,new SnapshotGeneratingValidationSupport(ctx)
+			,prePopulatedSupport
+			,remoteTermSvc
+		);
+
+		validatorModule = new FhirInstanceValidator(validationSupportChain);
+		// 2. Validator 등록
+		{
+			// 2.1. Request Validating Interceptor 생성
+			RequestValidatingInterceptor requestInterceptor = new RequestValidatingInterceptor();
+
+			if (validatorModule != null) {
+				requestInterceptor.addValidatorModule(validatorModule);
+			}
+
+			// 2.2. Interceptor 세부 설정
+			//requestInterceptor.setFailOnSeverity(ResultSeverityEnum.ERROR);
+			requestInterceptor.setAddResponseHeaderOnSeverity(ResultSeverityEnum.INFORMATION);
+			requestInterceptor.setResponseHeaderValue("${severity} ${line}: ${message}");
+			requestInterceptor.setResponseHeaderValueNoIssues("No issues detected");
+			fhirServer.registerInterceptor(requestInterceptor);
+		}
+
+		// 기본 HAPI FHIR JPA 기반의 Validation 모델
+		// RepositoryInterceptor 활용시에는 해당 모델은 적용하지 않도록 한다. 2023. 11. 01.
+		/*
 		if (validatorModule != null) {
 			if (appProperties.getValidation().getRequests_enabled()) {
 				RequestValidatingInterceptor interceptor = new RequestValidatingInterceptor();
@@ -385,7 +490,7 @@ public class StarterJpaConfig {
 				interceptor.setValidatorModules(Collections.singletonList(validatorModule));
 				fhirServer.registerInterceptor(interceptor);
 			}
-		}
+		}*/
 
 		// GraphQL
 		if (appProperties.getGraphql_enabled()) {

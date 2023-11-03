@@ -21,7 +21,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** 2023. 10. 19.
  * Implement 관련한 액티브를 수행한다.
@@ -41,7 +43,8 @@ public class ImplementGuideOperationProvider extends BaseJpaProvider {
 	}
 
 	/**
-	 * Server 내에 IG를 FHIR에 적재한다.
+	 * Server 내에 IG를 FHIR에 적재한다.(POST)
+	 * 컨텐츠에 \n 소거.
 	 *
 	 * @param theServletRequest  the the servlet request
 	 * @param theServletResponse the the servlet response
@@ -128,6 +131,22 @@ public class ImplementGuideOperationProvider extends BaseJpaProvider {
 				ourLog.info("CREATE Codesystem BY " + eachResource.getIdElement());
 				CodeSystem codeSystem = (CodeSystem) eachResource;
 				codeSystem.setStatus(Enumerations.PublicationStatus.ACTIVE);
+
+				Set<String> befIDStr = new HashSet<String>();
+				List<CodeSystem.ConceptDefinitionComponent> conceptDefinitionComponentList = new ArrayList<>();
+				// 2023. 11. 02. CodeSystem 의 Concept 이 겹치는 경우의 대한 소거처리
+				for(CodeSystem.ConceptDefinitionComponent concept : codeSystem.getConcept()){
+					boolean isAlreadyHas = befIDStr.contains(concept.getCode());
+					if(isAlreadyHas){
+						ourLog.info(" > Duplication Id ... " + concept.getCode());
+					}else{
+						befIDStr.add(concept.getCode());
+						conceptDefinitionComponentList.add(concept);
+					}
+				}
+
+				// 해당 Concept 중에 겹치지 않는것만 처리
+				codeSystem.setConcept(conceptDefinitionComponentList);
 
 				ourLog.info("CREATE Type : " + client.update().resource(codeSystem).execute().getId().getIdPart());
 				ourLog.info("CREATE Codesystem End");

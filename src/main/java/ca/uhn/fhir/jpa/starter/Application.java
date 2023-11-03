@@ -1,15 +1,24 @@
 package ca.uhn.fhir.jpa.starter;
 
 import ca.uhn.fhir.batch2.jobs.config.Batch2JobsConfig;
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.context.support.DefaultProfileValidationSupport;
+import ca.uhn.fhir.context.support.IValidationSupport;
 import ca.uhn.fhir.jpa.batch2.JpaBatch2Config;
+import ca.uhn.fhir.jpa.dao.JpaPersistedResourceValidationSupport;
 import ca.uhn.fhir.jpa.starter.annotations.OnEitherVersion;
 import ca.uhn.fhir.jpa.starter.common.FhirTesterConfig;
 import ca.uhn.fhir.jpa.starter.mdm.MdmConfig;
+import ca.uhn.fhir.jpa.starter.terminology.interceptor.PhisResponseInterceptor;
 import ca.uhn.fhir.jpa.subscription.channel.config.SubscriptionChannelConfig;
 import ca.uhn.fhir.jpa.subscription.match.config.SubscriptionProcessorConfig;
 import ca.uhn.fhir.jpa.subscription.match.config.WebsocketDispatcherConfig;
 import ca.uhn.fhir.jpa.subscription.submit.config.SubscriptionSubmitterConfig;
 import ca.uhn.fhir.rest.server.RestfulServer;
+import ca.uhn.fhir.rest.server.interceptor.RequestValidatingInterceptor;
+import ca.uhn.fhir.validation.ResultSeverityEnum;
+import org.hl7.fhir.common.hapi.validation.support.*;
+import org.hl7.fhir.common.hapi.validation.validator.FhirInstanceValidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.boot.SpringApplication;
@@ -61,7 +70,8 @@ public class Application extends SpringBootServletInitializer {
   public ServletRegistrationBean hapiServletRegistration(RestfulServer restfulServer) {
     ServletRegistrationBean servletRegistrationBean = new ServletRegistrationBean();
     beanFactory.autowireBean(restfulServer);
-    servletRegistrationBean.setServlet(restfulServer);
+
+	 servletRegistrationBean.setServlet(restfulServer);
     servletRegistrationBean.addUrlMappings("/fhir/*");
     servletRegistrationBean.setLoadOnStartup(1);
 

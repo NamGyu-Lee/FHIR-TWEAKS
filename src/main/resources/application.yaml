@@ -4,7 +4,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: "health,prometheus"
+        include: "health,prometheus" # spring boot Acturater - > Prometus -> grafina
 spring:
   main:
     allow-circular-references: true
@@ -16,9 +16,13 @@ spring:
   datasource:
     url: 'jdbc:h2:file:./target/database/h2'
     #url: jdbc:h2:mem:test_mem
+    #url: 'jdbc:postgresql://fhir-postgres:5432/hapi_dstu3'
     username: sa
     password: null
     driverClassName: org.h2.Driver
+    #username: DTxUser
+    #password: Khmc1803!
+    #driverClassName: org.postgresql.Driver
     max-active: 15
 
     # database connection pool size
@@ -33,7 +37,12 @@ spring:
       #Hibernate dialect is automatically detected except Postgres and H2.
       #If using H2, then supply the value of ca.uhn.fhir.jpa.model.dialect.HapiFhirH2Dialect
       #If using postgres, then supply the value of ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgres94Dialect
+
+      # H2 Test용
       hibernate.dialect: ca.uhn.fhir.jpa.model.dialect.HapiFhirH2Dialect
+
+      # PostGresql dialect
+      # hibernate.dialect: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgres94Dialect
   #      hibernate.hbm2ddl.auto: update
   #      hibernate.jdbc.batch_size: 20
   #      hibernate.cache.use_query_cache: false
@@ -45,14 +54,15 @@ spring:
   ###    These settings will enable fulltext search with lucene or elastic
       hibernate.search.enabled: true
   ### lucene parameters
-#      hibernate.search.backend.type: lucene
+#     hibernate.search.backend.type: lucene
 #      hibernate.search.backend.analysis.configurer: ca.uhn.fhir.jpa.search.HapiHSearchAnalysisConfigurers$HapiLuceneAnalysisConfigurer
 #      hibernate.search.backend.directory.type: local-filesystem
 #      hibernate.search.backend.directory.root: target/lucenefiles
 #      hibernate.search.backend.lucene_version: lucene_current
   ### elastic parameters ===> see also elasticsearch section below <===
-      hibernate.search.backend.type: elasticsearch
-      hibernate.search.backend.analysis.configurer: ca.uhn.fhir.jpa.search.HapiHSearchAnalysisConfigurers$HapiElasticAnalysisConfigurer
+# hibernate search 기반 lucene 으로 elasticSearch 활용 시
+#      hibernate.search.backend.type: elasticsearch
+#      hibernate.search.backend.analysis.configurer: ca.uhn.fhir.jpa.search.HapiHSearchAnalysisConfigurers$HapiElasticAnalysisConfigurer
 hapi:
   fhir:
 
@@ -76,16 +86,16 @@ hapi:
     ### enable to set the Server URL
     #    server_address: http://hapi.fhir.org/baseR4
     #    defer_indexing_for_codesystems_of_size: 101
-    #    install_transitive_ig_dependencies: true
+    ## IG 다운로드 할 때 depend 된 것들을 모두 가져온다. 2023. 10. 30.
+    install_transitive_ig_dependencies: true
     ### tells the server whether to attempt to load IG resources that are already present
     #    reload_existing_implementationGuides : false
-    #implementationguides:
-    ###    example from registry (packages.fhir.org)
-    #  swiss:
-    #    name: swiss.mednet.fhir
-    #    version: 0.8.0
-    #    reloadExisting: false
-    #    installMode: STORE_AND_INSTALL
+    implementationguides:
+      kr:
+        name: phis.ig.dev
+        version: 0.1.4
+        reloadExisting: false # 반드시 존재해도 리로드하기. 프로젝트 안정화 후 풀기 / default : false 2023.10.
+        installMode: STORE_AND_INSTALL # PackageInstallationSpec.InstallModeEnum STORE_ONLY, STORE_AND_INSTALL
     #      example not from registry
     #      ips_1_0_0:
     #        packageUrl: https://build.fhir.org/ig/HL7/fhir-ips/package.tgz
@@ -112,7 +122,9 @@ hapi:
     #    default_pretty_print: true
     #    default_page_size: 20
     #    delete_expunge_enabled: true
-    #    enable_repository_validating_interceptor: true
+    # 2023. 11. 01. IG의 대한 핸들링 시 ValidationInteceptorFactory 를 경유하여 Repository Validating Interceptor 을 활성화한다.
+      # 상기 진행하던 InstanceValidation 은 JPA기반의 HAPI FHIR에서는 Repository 에서 구현하지 않는다.
+    enable_repository_validating_interceptor: false
     #    enable_index_missing_fields: false
     #    enable_index_of_type: true
     #    enable_index_contained_resource: false
@@ -182,14 +194,17 @@ hapi:
         server_address: 'http://localhost:8080/fhir'
         refuse_to_fetch_third_party_urls: false
         fhir_version: R4
+        #validation:
+        #  requests_enabled: true
+        #  responses_enabled: true
       global:
         name: Global Tester
         server_address: "http://hapi.fhir.org/baseR4"
         refuse_to_fetch_third_party_urls: false
         fhir_version: R4
-    #    validation:
-    #      requests_enabled: true
-    #      responses_enabled: true
+        #validation:
+        #  requests_enabled: true
+        #  responses_enabled: true
     #    binary_storage_enabled: true
     inline_resource_storage_below_size: 4000
 #    bulk_export_enabled: true
@@ -214,17 +229,17 @@ hapi:
 ###   2: NORMALIZED_QUANTITY_SEARCH_SUPPORTED
     normalized_quantity_search_level: 2
 ## TODO. CONFIG) ElasticSearch 활용 시 설정
-elasticsearch:
-  debug:
-    pretty_print_json_log: true
-    refresh_after_write: false
-  enabled: true
-  password: DS8qFCWsRFCiN18iA9Eb
-  required_index_status: YELLOW
-  rest_url: 'localhost:9200'
-  protocol: 'http'
-  schema_management_strategy: CREATE
-  username: elastic
+#elasticsearch:
+#  debug:
+#    pretty_print_json_log: true
+#    refresh_after_write: false
+#  enabled: true
+#  password: DS8qFCWsRFCiN18iA9Eb
+#  required_index_status: YELLOW
+#  rest_url: 'localhost:9200'
+#  protocol: 'http'
+#  schema_management_strategy: CREATE
+#  username: elastic
 
 # 2023. 10. 19.
 # TODO) CONFIG) 해당 프로젝트에서 활용하는 Implement Guide 의 옵션을 정의한다
@@ -237,9 +252,9 @@ service:
       ig: # ig를 넣는 과정에서 너무 로드가 심한 경우때문에 timeout 추가
         timeout: 3000000
       paging:
-        defaultsize: 10
-        maxsize: 100
-        fifosize: 32
+        defaultsize: 100
+        maxsize: 1000
+        fifosize: 320
       search:
         summary:
           codesystem: true
