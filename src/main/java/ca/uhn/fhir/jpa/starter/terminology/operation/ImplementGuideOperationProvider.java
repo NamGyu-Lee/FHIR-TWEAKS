@@ -103,7 +103,7 @@ public class ImplementGuideOperationProvider extends BaseJpaProvider {
 			// 2. FHIR Client로 Server 호출
 			FhirContext ctx = FhirContext.forR4();
 			ctx.getRestfulClientFactory().setSocketTimeout(terminologyCodeConfigProperties.getTimeout());
-			IGenericClient client =  ctx.newRestfulGenericClient(terminologyCodeConfigProperties.getUrl());
+			IGenericClient client =  ctx.newRestfulGenericClient(terminologyCodeConfigProperties.getCodeInjectTargetUrl());
 
 			// 3. FHIR에 적재
 			// valueset
@@ -227,7 +227,7 @@ public class ImplementGuideOperationProvider extends BaseJpaProvider {
 			// 2. FHIR Client로 Server 호출
 			FhirContext ctx = FhirContext.forR4();
 			ctx.getRestfulClientFactory().setSocketTimeout(terminologyCodeConfigProperties.getTimeout());
-			IGenericClient client =  ctx.newRestfulGenericClient(terminologyCodeConfigProperties.getUrl());
+			IGenericClient client =  ctx.newRestfulGenericClient(terminologyCodeConfigProperties.getCodeInjectTargetUrl());
 
 			// 3. FHIR에 적재
 			Bundle operationBundle = new Bundle();

@@ -20,9 +20,8 @@ public class TerminologyCodeConfigProperties {
 	@Value("${service.terminology.common.ig.timeout}")
 	private int timeout;
 
-	private final String url = "http://localhost:8080/fhir";
-
-
+	@Value("${hapi.fhir.tester.home.server_address}")
+	private String codeInjectTargetUrl;
 
 	@Bean
 	public String getPackageAddress() {
@@ -37,7 +36,7 @@ public class TerminologyCodeConfigProperties {
 		return timeout;
 	}
 
-	public String getUrl() {
-		return url;
+	public String getCodeInjectTargetUrl() {
+		return codeInjectTargetUrl;
 	}
 }

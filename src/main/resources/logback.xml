@@ -9,14 +9,14 @@
 		</encoder>
 	</appender>
 
-	<logger name="org.springframework.beans" level="INFO">
+	<logger name="org.springframework.beans" level="DEBUG">
 		<appender-ref ref="STDOUT" />
 	</logger>
-	<logger name="org.springframework.core" level="INFO">
+	<logger name="org.springframework.core" level="DEBUG">
 		<appender-ref ref="STDOUT" />
 	</logger>
 
-	<root level="INFO">
+	<root level="DEBUG">
 		<appender-ref ref="STDOUT" />
 	</root>
 

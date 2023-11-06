@@ -26,7 +26,6 @@ import ca.uhn.fhir.jpa.config.util.ResourceCountCacheUtil;
 import ca.uhn.fhir.jpa.config.util.ValidationSupportConfigUtil;
 import ca.uhn.fhir.jpa.dao.FulltextSearchSvcImpl;
 import ca.uhn.fhir.jpa.dao.IFulltextSearchSvc;
-import ca.uhn.fhir.jpa.dao.JpaPersistedResourceValidationSupport;
 import ca.uhn.fhir.jpa.dao.search.HSearchSortHelperImpl;
 import ca.uhn.fhir.jpa.dao.search.IHSearchSortHelper;
 import ca.uhn.fhir.jpa.delete.ThreadSafeResourceDeleterSvc;
@@ -49,10 +48,12 @@ import ca.uhn.fhir.jpa.starter.annotations.OnImplementationGuidesPresent;
 import ca.uhn.fhir.jpa.starter.common.validation.IRepositoryValidationInterceptorFactory;
 import ca.uhn.fhir.jpa.starter.terminology.config.TerminologyCodeConfigProperties;
 import ca.uhn.fhir.jpa.starter.terminology.config.TerminologyPagingConfigProperties;
+import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationBaseConfigProperties;
+import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationRemoteConfigProperties;
 import ca.uhn.fhir.jpa.starter.terminology.config.TerminologySearchConfigProperties;
 import ca.uhn.fhir.jpa.starter.terminology.operation.ImplementGuideOperationProvider;
 import ca.uhn.fhir.jpa.starter.terminology.paging.TerminologyPagingProvider;
-import ca.uhn.fhir.jpa.starter.terminology.resource.SampleResourceProvider;
+import ca.uhn.fhir.jpa.starter.validation.support.DevRemoteTerminologyServiceValidationSupport;
 import ca.uhn.fhir.jpa.starter.util.EnvironmentHelper;
 import ca.uhn.fhir.jpa.subscription.util.SubscriptionDebugLogInterceptor;
 import ca.uhn.fhir.jpa.util.ResourceCountCache;
@@ -74,7 +75,6 @@ import ca.uhn.fhir.rest.server.util.ISearchParamRegistry;
 import ca.uhn.fhir.validation.IValidatorModule;
 import ca.uhn.fhir.validation.ResultSeverityEnum;
 import com.google.common.base.Strings;
-import org.hl7.fhir.ImplementationGuide;
 import org.hl7.fhir.common.hapi.validation.support.*;
 import org.hl7.fhir.common.hapi.validation.validator.FhirInstanceValidator;
 import org.hl7.fhir.instance.model.api.IBaseCoding;
@@ -83,7 +83,6 @@ import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.StructureDefinition;
 import org.hl7.fhir.r4.model.ValueSet;
-import org.hl7.fhir.utilities.npm.NpmPackage;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
@@ -142,6 +141,14 @@ public class StarterJpaConfig {
 
 	@Autowired
 	private TerminologySearchConfigProperties terminologySearchConfigProperties;
+
+	@Autowired
+	private CustomValidationBaseConfigProperties customValidationBaseConfigProperties;
+
+	@Autowired
+	private CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties;
+
+
 
 	/**
 	 * Customize the default/max page sizes for search results. You can set these however
@@ -386,111 +393,131 @@ public class StarterJpaConfig {
 			fhirServer.registerInterceptor(binaryStorageInterceptor);
 		}
 
-		// 해당 서버가 Terminology 서버를 바라보도록 구성
-		FhirContext ctx = fhirServer.getFhirContext();
-		RemoteTerminologyServiceValidationSupport remoteTermSvc = new RemoteTerminologyServiceValidationSupport(ctx);
-		remoteTermSvc.setBaseUrl("http://122.153.160.23:6010/fhir"); // healthall terminology
-
-		// 1. PrePopulation Validaton 정의
-		Map<String, PackageInstallationSpec> ad = appProperties.getImplementationGuides();
-		PrePopulatedValidationSupport prePopulatedSupport = new PrePopulatedValidationSupport(ctx);
-
-		// 2. 서버 내 Structure Definion, ValieSet 조회
-		// 2.1. StructureDef
-		IBaseCoding serachCodeForStructureDef = new Coding();
-		serachCodeForStructureDef.setCode("active");
-		TokenParam searchToken = new TokenParam(serachCodeForStructureDef);
-		SearchParameterMap searchParameterMapForStructureDef = new SearchParameterMap().add(StructureDefinition.SP_STATUS , searchToken);
-		searchParameterMapForStructureDef.setSearchTotalMode(SearchTotalModeEnum.ACCURATE);
-		searchParameterMapForStructureDef.setCount(1000);
-
-		IFhirResourceDao structureDefinitionResourceProvider = daoRegistry.getResourceDao("StructureDefinition");
-		IBundleProvider results = structureDefinitionResourceProvider.search(searchParameterMapForStructureDef);
-
-		// 2.2. ValueSet
-		IBaseCoding serachCodeForValueSet = new Coding();
-		serachCodeForValueSet.setCode("active");
-		TokenParam searchTokenForValueSet = new TokenParam(serachCodeForValueSet);
-		SearchParameterMap searchParameterMapForValueSet = new SearchParameterMap().add(ValueSet.SP_STATUS, searchTokenForValueSet);
-		searchParameterMapForValueSet.setSearchTotalMode(SearchTotalModeEnum.ACCURATE);
-		searchParameterMapForValueSet.setCount(1000);
-
-		IFhirResourceDao resourceProviderForValueSet = daoRegistry.getResourceDao("ValueSet");
-		IBundleProvider resultsValueSet = resourceProviderForValueSet.search(searchParameterMapForValueSet);
-
-		// 2.3. CodeSystem
-		IBaseCoding serachCodeForCodeSystem = new Coding();
-		serachCodeForCodeSystem.setCode("active");
-		TokenParam searchTokenForCodeSystem = new TokenParam(serachCodeForCodeSystem);
-		SearchParameterMap searchParameterMapForCodeSystem = new SearchParameterMap().add(CodeSystem.SP_STATUS, searchTokenForCodeSystem);
-		searchParameterMapForCodeSystem.setSearchTotalMode(SearchTotalModeEnum.ACCURATE);
-		searchParameterMapForCodeSystem.setCount(1000);
-
-		IFhirResourceDao resourceProviderForCodeSystem = daoRegistry.getResourceDao("CodeSystem");
-		IBundleProvider resultsCodeSystem = resourceProviderForCodeSystem.search(searchParameterMapForCodeSystem);
-
-		// 3. 적용
-		for(IBaseResource eachResource : results.getAllResources()){
-			StructureDefinition def = (StructureDefinition)eachResource;
-			ourLog.info(" > prePopulated StructureDefinition url : " + def.getUrl());
-			prePopulatedSupport.addStructureDefinition(def);
-		}
-
-		for(IBaseResource eachResource : resultsValueSet.getAllResources()){
-			ValueSet vs = (ValueSet)eachResource;
-			ourLog.info(" > prePopulated ValueSet url : " + vs.getUrl());
-			prePopulatedSupport.addValueSet(vs);
-		}
-
-		for(IBaseResource eachResource : resultsCodeSystem.getAllResources()){
-			CodeSystem cs = (CodeSystem)eachResource;
-			ourLog.info(" > prePopulated CodeSystem url : " + cs.getUrl());
-			prePopulatedSupport.addCodeSystem(cs);
-		}
-
-		ValidationSupportChain validationSupportChain = new ValidationSupportChain(
-			 new DefaultProfileValidationSupport(ctx)
-			,new CommonCodeSystemsTerminologyService(ctx)
-			,new SnapshotGeneratingValidationSupport(ctx)
-			,prePopulatedSupport
-			,remoteTermSvc
-		);
-
-		validatorModule = new FhirInstanceValidator(validationSupportChain);
-		// 2. Validator 등록
-		{
-			// 2.1. Request Validating Interceptor 생성
-			RequestValidatingInterceptor requestInterceptor = new RequestValidatingInterceptor();
-
-			if (validatorModule != null) {
-				requestInterceptor.addValidatorModule(validatorModule);
-			}
-
-			// 2.2. Interceptor 세부 설정
-			//requestInterceptor.setFailOnSeverity(ResultSeverityEnum.ERROR);
-			requestInterceptor.setAddResponseHeaderOnSeverity(ResultSeverityEnum.INFORMATION);
-			requestInterceptor.setResponseHeaderValue("${severity} ${line}: ${message}");
-			requestInterceptor.setResponseHeaderValueNoIssues("No issues detected");
-			fhirServer.registerInterceptor(requestInterceptor);
-		}
-
-		// 기본 HAPI FHIR JPA 기반의 Validation 모델
-		// RepositoryInterceptor 활용시에는 해당 모델은 적용하지 않도록 한다. 2023. 11. 01.
 		/*
-		if (validatorModule != null) {
-			if (appProperties.getValidation().getRequests_enabled()) {
-				RequestValidatingInterceptor interceptor = new RequestValidatingInterceptor();
-				interceptor.setFailOnSeverity(ResultSeverityEnum.ERROR);
-				interceptor.setValidatorModules(Collections.singletonList(validatorModule));
-				fhirServer.registerInterceptor(interceptor);
-			}
-			if (appProperties.getValidation().getResponses_enabled()) {
-				ResponseValidatingInterceptor interceptor = new ResponseValidatingInterceptor();
-				interceptor.setFailOnSeverity(ResultSeverityEnum.ERROR);
-				interceptor.setValidatorModules(Collections.singletonList(validatorModule));
-				fhirServer.registerInterceptor(interceptor);
+		// Terminology 원격 서버에서 모든 CodeSystem을 가져오기 위한 목적으로 개발.
+		// NOT WORKING... 아마 Terminology Server의 Interceptor 가 강제 summary 처리해버리는듯
+		List<IBaseResource> remoteAllConformanceResourceList = remoteTermSvc.fetchAllConformanceResources();
+		for(IBaseResource eachResource : remoteAllConformanceResourceList){
+			ourLog.info("interest ... : " + eachResource.getIdElement().toString());
+			if(eachResource.fhirType().equals("CodeSystem")){
+				CodeSystem cd = (CodeSystem) eachResource;
+				ourLog.info("CodeSystem : " + cd.getName() + " 의 Concept Size : "  + cd.getConcept().size());
 			}
 		}*/
+		// Structure Definition 의 대한 세부적인 설정 구성.
+		if(customValidationBaseConfigProperties.isEnableValidation()) {
+			FhirContext ctx = fhirServer.getFhirContext();
+			ourLog.info(" > Instance 기반의 Validation Service Configuration Start");
+			// 1. PrePopulation Validaton 정의
+			Map<String, PackageInstallationSpec> ad = appProperties.getImplementationGuides();
+			PrePopulatedValidationSupport prePopulatedSupport = new PrePopulatedValidationSupport(ctx);
+
+			// 2. 서버 내 Structure Definion, ValieSet 조회
+			// 2.1. StructureDef
+			IBaseCoding serachCodeForStructureDef = new Coding();
+			serachCodeForStructureDef.setCode("active");
+			TokenParam searchToken = new TokenParam(serachCodeForStructureDef);
+			SearchParameterMap searchParameterMapForStructureDef = new SearchParameterMap().add(StructureDefinition.SP_STATUS, searchToken);
+			searchParameterMapForStructureDef.setSearchTotalMode(SearchTotalModeEnum.ACCURATE);
+			searchParameterMapForStructureDef.setCount(1000);
+
+			IFhirResourceDao structureDefinitionResourceProvider = daoRegistry.getResourceDao("StructureDefinition");
+			IBundleProvider results = structureDefinitionResourceProvider.search(searchParameterMapForStructureDef);
+
+			// 2.2. ValueSet
+			IBaseCoding serachCodeForValueSet = new Coding();
+			serachCodeForValueSet.setCode("active");
+			TokenParam searchTokenForValueSet = new TokenParam(serachCodeForValueSet);
+			SearchParameterMap searchParameterMapForValueSet = new SearchParameterMap().add(ValueSet.SP_STATUS, searchTokenForValueSet);
+			searchParameterMapForValueSet.setSearchTotalMode(SearchTotalModeEnum.ACCURATE);
+			searchParameterMapForValueSet.setCount(1000);
+
+			IFhirResourceDao resourceProviderForValueSet = daoRegistry.getResourceDao("ValueSet");
+			IBundleProvider resultsValueSet = resourceProviderForValueSet.search(searchParameterMapForValueSet);
+
+			// 2.3. CodeSystem
+			IBaseCoding serachCodeForCodeSystem = new Coding();
+			serachCodeForCodeSystem.setCode("active");
+			TokenParam searchTokenForCodeSystem = new TokenParam(serachCodeForCodeSystem);
+			SearchParameterMap searchParameterMapForCodeSystem = new SearchParameterMap().add(CodeSystem.SP_STATUS, searchTokenForCodeSystem);
+			searchParameterMapForCodeSystem.setSearchTotalMode(SearchTotalModeEnum.ACCURATE);
+			searchParameterMapForCodeSystem.setCount(1000);
+
+			IFhirResourceDao resourceProviderForCodeSystem = daoRegistry.getResourceDao("CodeSystem");
+			IBundleProvider resultsCodeSystem = resourceProviderForCodeSystem.search(searchParameterMapForCodeSystem);
+
+			// 3. 적용
+			for (IBaseResource eachResource : results.getAllResources()) {
+				StructureDefinition def = (StructureDefinition) eachResource;
+				ourLog.info(" > prePopulated StructureDefinition url : " + def.getUrl());
+				prePopulatedSupport.addStructureDefinition(def);
+			}
+
+			for (IBaseResource eachResource : resultsValueSet.getAllResources()) {
+				ValueSet vs = (ValueSet) eachResource;
+				ourLog.info(" > prePopulated ValueSet url : " + vs.getUrl());
+				prePopulatedSupport.addValueSet(vs);
+			}
+
+			for (IBaseResource eachResource : resultsCodeSystem.getAllResources()) {
+				CodeSystem cs = (CodeSystem) eachResource;
+				ourLog.info(" > prePopulated CodeSystem url : " + cs.getUrl());
+				prePopulatedSupport.addCodeSystem(cs);
+			}
+
+			ValidationSupportChain validationSupportChain;
+			if (customValidationRemoteConfigProperties.isRemoteTerminologyYn()) {
+				// 해당 서버가 별개의 Remote Terminology 서버를 바라보도록 구성
+				ourLog.info(" > Remote Terminology Server Enabled.. Server URL : " + customValidationRemoteConfigProperties.getRemoteURL());
+				DevRemoteTerminologyServiceValidationSupport remoteTermSvc = new DevRemoteTerminologyServiceValidationSupport(ctx);
+				remoteTermSvc.setBaseUrl(customValidationRemoteConfigProperties.getRemoteURL()); // healthall terminology
+
+				validationSupportChain = new ValidationSupportChain(
+					// 1. 기본적인 FHIR의 Support 구성
+					new DefaultProfileValidationSupport(ctx)
+					, new CommonCodeSystemsTerminologyService(ctx)
+					, new SnapshotGeneratingValidationSupport(ctx)
+					// 2. 로컬에만 있는 코드의 경우 적용
+					, new InMemoryTerminologyServerValidationSupport(ctx)
+					// 3. IG와 Terminology 처리
+					, prePopulatedSupport
+					, remoteTermSvc
+				);
+			} else {
+				validationSupportChain = new ValidationSupportChain(
+					// 1. 기본적인 FHIR의 Support 구성
+					new DefaultProfileValidationSupport(ctx)
+					, new CommonCodeSystemsTerminologyService(ctx)
+					, new SnapshotGeneratingValidationSupport(ctx)
+					// 2. 로컬에만 있는 코드의 경우 적용
+					, new InMemoryTerminologyServerValidationSupport(ctx)
+					// 3. IG와 Terminology 처리
+					, prePopulatedSupport
+				);
+			}
+
+			validatorModule = new FhirInstanceValidator(validationSupportChain);
+			// 2. Validator 등록
+			{
+				// 2.1. Request Validating Interceptor 생성
+				RequestValidatingInterceptor requestInterceptor = new RequestValidatingInterceptor();
+
+				if (validatorModule != null) {
+					requestInterceptor.addValidatorModule(validatorModule);
+				}
+
+				// 2.2. Interceptor 세부 설정
+				//requestInterceptor.setFailOnSeverity(ResultSeverityEnum.ERROR);
+				requestInterceptor.setAddResponseHeaderOnSeverity(ResultSeverityEnum.INFORMATION);
+				//requestInterceptor.setResponseHeaderValue("${severity} ${line}: ${message}");
+				requestInterceptor.setResponseHeaderValueNoIssues("No issues detected");
+				fhirServer.registerInterceptor(requestInterceptor);
+			}
+
+			ourLog.info(" > Instance Based Customed Validation Service Configuration End");
+		}else{
+			ourLog.info(" > Instance Based Customed Validation Service No Configurated. Cause User Option... (Check application.yaml service.terminology.validation.enabled)");
+		}
 
 		// GraphQL
 		if (appProperties.getGraphql_enabled()) {
