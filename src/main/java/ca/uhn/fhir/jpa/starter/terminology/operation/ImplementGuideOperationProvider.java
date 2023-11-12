@@ -2,7 +2,6 @@ package ca.uhn.fhir.jpa.starter.terminology.operation;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.jpa.provider.BaseJpaProvider;
-import ca.uhn.fhir.jpa.provider.ValueSetOperationProvider;
 import ca.uhn.fhir.jpa.starter.terminology.config.TerminologyCodeConfigProperties;
 
 import ca.uhn.fhir.jpa.starter.terminology.util.FHIRUtils;
@@ -34,7 +33,7 @@ import java.util.Set;
 // 해당 클래스 선언 후 startjpaConfig 에서 설정.
 public class ImplementGuideOperationProvider extends BaseJpaProvider {
 
-	private static final Logger ourLog = LoggerFactory.getLogger(ValueSetOperationProvider.class);
+	private static final Logger ourLog = LoggerFactory.getLogger(ImplementGuideOperationProvider.class);
 
 	private final TerminologyCodeConfigProperties terminologyCodeConfigProperties;
 
@@ -227,7 +226,7 @@ public class ImplementGuideOperationProvider extends BaseJpaProvider {
 			// 2. FHIR Client로 Server 호출
 			FhirContext ctx = FhirContext.forR4();
 			ctx.getRestfulClientFactory().setSocketTimeout(terminologyCodeConfigProperties.getTimeout());
-			IGenericClient client =  ctx.newRestfulGenericClient(terminologyCodeConfigProperties.getCodeInjectTargetUrl());
+			IGenericClient client = ctx.newRestfulGenericClient(terminologyCodeConfigProperties.getCodeInjectTargetUrl());
 
 			// 3. FHIR에 적재
 			Bundle operationBundle = new Bundle();
@@ -255,6 +254,24 @@ public class ImplementGuideOperationProvider extends BaseJpaProvider {
 			theServletResponse.getWriter().write("Implement Guide Example Insert Done...");
 			theServletResponse.getWriter().close();
 
+		}catch(IOException e){
+			theServletResponse.setContentType("text/plain");
+			theServletResponse.getWriter().write(e.getMessage());
+			theServletResponse.getWriter().close();
+		}
+	}
+
+	@Operation(name="$sample-custom-operation", manualResponse=true, manualRequest=true)
+	public void manualInputAndOutput(HttpServletRequest theServletRequest, HttpServletResponse theServletResponse) throws IOException {
+		String contentType = theServletRequest.getContentType();
+		byte[] bytes = IOUtils.toByteArray(theServletRequest.getInputStream());
+		ourLog.debug("Input Implement Guide init...");
+
+		try {
+			ourLog.info("Received call with content type {} and {} bytes", contentType, bytes.length);
+			theServletResponse.setContentType("text/plain");
+			theServletResponse.getWriter().write("사용자에게 이 메세지가 리턴되요.");
+			theServletResponse.getWriter().close();
 		}catch(IOException e){
 			theServletResponse.setContentType("text/plain");
 			theServletResponse.getWriter().write(e.getMessage());

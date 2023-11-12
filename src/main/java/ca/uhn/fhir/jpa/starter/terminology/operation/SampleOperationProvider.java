@@ -27,6 +27,11 @@ import java.io.IOException;
  * SampleOperationProvider testOperationProvider = new SampleOperationProvider();
  * fhirServer.registerProvider(SampleOperationProvider);
  *
+ * Call ) POST
+ * http://localhost:8080/fhir/$manualInputAndOutput
+ *
+ * tip. 파라미터 구조가 FHIR 내부 파서를 한번 거치기에 엄격하다. 따라서 핸들링 하기에 복잡한 리퀘스트/결과리턴의 경우 StartJpaConfig에서 오픈소스로 구성된것 참고해서 작업하자
+ * ex ) BulkDataImportProvider
  */
 public class SampleOperationProvider extends BaseJpaProvider {
 	private static final Logger ourLog = LoggerFactory.getLogger(ValueSetOperationProvider.class);
@@ -62,6 +67,7 @@ public class SampleOperationProvider extends BaseJpaProvider {
 	// 3. 서버단위 활용
 	// POST에만 수행 가능하다
 	// theServletResponse 에 write으로 리턴하는 방식.
+	// tip. application/Json 으로 리퀘스트가 오는경우 다른 액티브가 수행됌.. plainText로 헤더를 받을것
 	// locahost:8080/fhir/$sample-custom-operation
 	@Operation(name="$sample-custom-operation", manualResponse=true, manualRequest=true)
 	public void manualInputAndOutput(HttpServletRequest theServletRequest, HttpServletResponse theServletResponse) throws IOException {

@@ -48,6 +48,8 @@ import ca.uhn.fhir.jpa.starter.annotations.OnImplementationGuidesPresent;
 import ca.uhn.fhir.jpa.starter.common.validation.IRepositoryValidationInterceptorFactory;
 import ca.uhn.fhir.jpa.starter.terminology.config.TerminologyCodeConfigProperties;
 import ca.uhn.fhir.jpa.starter.terminology.config.TerminologyPagingConfigProperties;
+import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
+import ca.uhn.fhir.jpa.starter.transfor.operation.resourceTransforOperationProvider;
 import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationBaseConfigProperties;
 import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationRemoteConfigProperties;
 import ca.uhn.fhir.jpa.starter.terminology.config.TerminologySearchConfigProperties;
@@ -79,16 +81,15 @@ import org.hl7.fhir.common.hapi.validation.support.*;
 import org.hl7.fhir.common.hapi.validation.validator.FhirInstanceValidator;
 import org.hl7.fhir.instance.model.api.IBaseCoding;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.model.CodeSystem;
-import org.hl7.fhir.r4.model.Coding;
-import org.hl7.fhir.r4.model.StructureDefinition;
-import org.hl7.fhir.r4.model.ValueSet;
+import org.hl7.fhir.r4.hapi.ctx.HapiWorkerContext;
+import org.hl7.fhir.r4.model.*;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.*;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.http.HttpHeaders;
 import org.springframework.orm.jpa.JpaTransactionManager;
@@ -148,7 +149,15 @@ public class StarterJpaConfig {
 	@Autowired
 	private CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties;
 
+	@Autowired
+	TransformDataOperationConfigProperties transformDataOperationConfigProperties;
 
+	@Bean
+	// 2023. 11. 10. Resource 변환 Provider 구성
+	public resourceTransforOperationProvider cmcResourceTransforOperationProvider(){
+		resourceTransforOperationProvider resourceTransforOperationProvider = new resourceTransforOperationProvider();
+		return resourceTransforOperationProvider;
+	}
 
 	/**
 	 * Customize the default/max page sizes for search results. You can set these however
@@ -279,7 +288,12 @@ public class StarterJpaConfig {
 	}
 
 	@Bean
-	public RestfulServer restfulServer(IFhirSystemDao<?, ?> fhirSystemDao, AppProperties appProperties, DaoRegistry daoRegistry, Optional<MdmProviderLoader> mdmProviderProvider, IJpaSystemProvider jpaSystemProvider, ResourceProviderFactory resourceProviderFactory, JpaStorageSettings jpaStorageSettings, ISearchParamRegistry searchParamRegistry, IValidationSupport theValidationSupport, DatabaseBackedPagingProvider databaseBackedPagingProvider, LoggingInterceptor loggingInterceptor, Optional<TerminologyUploaderProvider> terminologyUploaderProvider, Optional<SubscriptionTriggeringProvider> subscriptionTriggeringProvider, Optional<CorsInterceptor> corsInterceptor, IInterceptorBroadcaster interceptorBroadcaster, Optional<BinaryAccessProvider> binaryAccessProvider, BinaryStorageInterceptor binaryStorageInterceptor, IValidatorModule validatorModule, Optional<GraphQLProvider> graphQLProvider, BulkDataExportProvider bulkDataExportProvider, BulkDataImportProvider bulkDataImportProvider, ValueSetOperationProvider theValueSetOperationProvider, ReindexProvider reindexProvider, PartitionManagementProvider partitionManagementProvider, Optional<RepositoryValidatingInterceptor> repositoryValidatingInterceptor, IPackageInstallerSvc packageInstallerSvc, ThreadSafeResourceDeleterSvc theThreadSafeResourceDeleterSvc, ApplicationContext appContext, Optional<IpsOperationProvider> theIpsOperationProvider) {
+	public RestfulServer restfulServer(IFhirSystemDao<?, ?> fhirSystemDao, AppProperties appProperties, DaoRegistry daoRegistry, Optional<MdmProviderLoader> mdmProviderProvider, IJpaSystemProvider jpaSystemProvider, ResourceProviderFactory resourceProviderFactory, JpaStorageSettings jpaStorageSettings, ISearchParamRegistry searchParamRegistry, IValidationSupport theValidationSupport, DatabaseBackedPagingProvider databaseBackedPagingProvider, LoggingInterceptor loggingInterceptor, Optional<TerminologyUploaderProvider> terminologyUploaderProvider, Optional<SubscriptionTriggeringProvider> subscriptionTriggeringProvider, Optional<CorsInterceptor> corsInterceptor, IInterceptorBroadcaster interceptorBroadcaster, Optional<BinaryAccessProvider> binaryAccessProvider, BinaryStorageInterceptor binaryStorageInterceptor, IValidatorModule validatorModule, Optional<GraphQLProvider> graphQLProvider, BulkDataExportProvider bulkDataExportProvider, BulkDataImportProvider bulkDataImportProvider, ValueSetOperationProvider theValueSetOperationProvider, ReindexProvider reindexProvider, PartitionManagementProvider partitionManagementProvider, Optional<RepositoryValidatingInterceptor> repositoryValidatingInterceptor, IPackageInstallerSvc packageInstallerSvc, ThreadSafeResourceDeleterSvc theThreadSafeResourceDeleterSvc, ApplicationContext appContext, Optional<IpsOperationProvider> theIpsOperationProvider
+	 , resourceTransforOperationProvider resourceTransforOperationProvider
+	) {
+
+		ourLog.info(" >> restful Server Start...!!");
+
 		RestfulServer fhirServer = new RestfulServer(fhirSystemDao.getContext());
 
 		List<String> supportedResourceTypes = appProperties.getSupported_resource_types();
@@ -551,6 +565,17 @@ public class StarterJpaConfig {
 		ImplementGuideOperationProvider testOperationProvider = new ImplementGuideOperationProvider(terminologyCodeConfigProperties);
 		fhirServer.registerProvider(testOperationProvider);
 
+		// 2023. 11. 07. Data를 FHIR 로 변환해주는 프로그램을 추가한다.
+		if(transformDataOperationConfigProperties.isTransforEnabled()) {
+			ourLog.info(" > Transfor Data Opened.. ");
+			ourLog.info(" > Now Transfor Version : " + transformDataOperationConfigProperties.getServiceTarget());
+			// cmc 기반의 Transfor 적용
+			if ("cmc".equals(transformDataOperationConfigProperties.getServiceTarget())) {
+				ourLog.info(" ㄴ> Cathoric Medical Centor Data exchange service Operation Provider registed. ");
+			}
+		}
+		fhirServer.registerProvider(resourceTransforOperationProvider);
+
 		// TODO. CONFIG) 사용자 요구에 따라 paging 조정
 		fhirServer.setPagingProvider(new TerminologyPagingProvider(terminologyPagingConfigProperties));
 
@@ -644,5 +669,13 @@ public class StarterJpaConfig {
 			throw new IllegalStateException();
 		}
 	}
+
+	// 2023. 11. 10. Test용.
+	@Bean
+	public HapiWorkerContext hapiWorkerContext(FhirContext theFhirContext, IValidationSupport theValidationSupport){
+		ourLog.info(" >>> [DEV]Simple Worker Initalized... ");
+		return new HapiWorkerContext(theFhirContext, theValidationSupport);
+	}
+
 }
 

@@ -93,7 +93,7 @@ hapi:
     implementationguides:
       kr:
         name: phis.ig.dev
-        version: 0.1.6
+        version: 0.1.7
         reloadExisting: false # 반드시 존재해도 리로드하기. 프로젝트 안정화 후 풀기 / default : false 2023.10.
         installMode: STORE_AND_INSTALL # PackageInstallationSpec.InstallModeEnum STORE_ONLY, STORE_AND_INSTALL
     #      example not from registry
@@ -261,8 +261,11 @@ service:
           valueset: true
           searchparameter: true
   validation:
-    enabled: true
+    enabled: false
     remote:
       server:
         enabled : true
         url: http://122.153.160.23:6010/fhir
+  transfor:
+    enabled: true
+    target: cmc
