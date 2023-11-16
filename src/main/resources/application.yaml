@@ -261,7 +261,7 @@ service:
           valueset: true
           searchparameter: true
   validation:
-    enabled: false
+    enabled: true
     remote:
       server:
         enabled : true
@@ -269,3 +269,5 @@ service:
   transfor:
     enabled: true
     target: cmc
+    logging: true
+    ignorenoencounter: true

@@ -154,8 +154,8 @@ public class StarterJpaConfig {
 
 	@Bean
 	// 2023. 11. 10. Resource 변환 Provider 구성
-	public resourceTransforOperationProvider cmcResourceTransforOperationProvider(){
-		resourceTransforOperationProvider resourceTransforOperationProvider = new resourceTransforOperationProvider();
+	public resourceTransforOperationProvider cmcResourceTransforOperationProvider(FhirContext theFhirContext){
+		resourceTransforOperationProvider resourceTransforOperationProvider = new resourceTransforOperationProvider(theFhirContext);
 		return resourceTransforOperationProvider;
 	}
 

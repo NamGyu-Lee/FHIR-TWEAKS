@@ -4,24 +4,15 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
 import ca.uhn.fhir.jpa.provider.BaseJpaProvider;
-import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
-import ca.uhn.fhir.jpa.starter.transfor.code.MyHumanName;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
+import ca.uhn.fhir.jpa.starter.transfor.dto.base.ReferenceDataMatcher;
+import ca.uhn.fhir.jpa.starter.transfor.dto.base.ReferenceDataSet;
+import ca.uhn.fhir.jpa.starter.transfor.service.cmc.CmcDataTransforServiceImpl;
 import ca.uhn.fhir.rest.annotation.Operation;
-import ca.uhn.fhir.rest.api.SearchTotalModeEnum;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
-import ca.uhn.fhir.rest.param.StringParam;
-import ca.uhn.fhir.rest.param.TokenParam;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
 import org.apache.commons.io.IOUtils;
-import org.hl7.fhir.exceptions.FHIRException;
-import org.hl7.fhir.instance.model.api.IBaseCoding;
-import org.hl7.fhir.r4.context.SimpleWorkerContext;
 import org.hl7.fhir.r4.hapi.ctx.HapiWorkerContext;
 import org.hl7.fhir.r4.model.*;
-import org.hl7.fhir.r4.utils.StructureMapUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +21,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  *  2023. 11. 07. CMC 기반의 EMR시스템에서 접근하는 Operation의 대하여 핸들링한다.
@@ -54,15 +46,25 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 	@Autowired
 	private HapiWorkerContext hapiWorkerContext;
 
-	public resourceTransforOperationProvider() {
+	FhirContext fn;
 
+	public resourceTransforOperationProvider(){
+		fn = this.getContext();
 	}
+
+	public resourceTransforOperationProvider(FhirContext fn){
+		this.fn = fn;
+	}
+
+	ReferenceDataMatcher referenceDataMatcher = new ReferenceDataMatcher();
+
+	CmcDataTransforServiceImpl cmcDataTransforService = new CmcDataTransforServiceImpl();
 
 	// 1. CMC 기반 데이터를 전달받아 Patient 를 생성한다.
 	// theServletResponse 에 write으로 리턴하는 방식.
 	// locahost:8080/fhir/$sample-custom-operation
 	@Operation(
-		name="$tranform-resource",
+		name="$tranform-resource-basic",
 		idempotent = false,
 		manualRequest = true,
 		manualResponse = true
@@ -71,57 +73,28 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 		String retMessage = "-";
 		ourLog.info(" > Create CMC Standard Data Transfor initalized.. ");
 
+		FhirContext fn = this.getContext();
+
 		try {
 			byte[] bytes = IOUtils.toByteArray(theServletRequest.getInputStream());
 			String bodyData = new String(bytes);
 
-			ourLog.info(" > Request String : " + bodyData);
 			JsonParser jsonParser = new JsonParser();
 			JsonElement jsonElement = jsonParser.parse(bodyData);
 			JsonObject jsonObject = jsonElement.getAsJsonObject();
 
-			// 1. JSON TO JsonObject
-			// 1.1. Sorting Cause Reference.
-			Queue<JsonElement> upperSortingQueue = new LinkedList<>();
-			Queue<JsonElement> lowerSortingQueue = new LinkedList<>();
-			Queue<JsonElement> nonSortingQueue = new LinkedList<>();
-			Queue<JsonElement> sortedQueue = new LinkedList<>();
-			for(Map.Entry<String, JsonElement> eachEntry : jsonObject.entrySet()){
-				// first
-				for(String upperString : transformDataOperationConfigProperties.getResourceUpperSortingReferenceSet()){
-					if(eachEntry.getKey().equals(upperString)){
-						upperSortingQueue.add(eachEntry.getValue());
-						continue;
-					}
-				}
+			Queue<Map.Entry<String, JsonElement>> sortedQueue = sortingCreateResourceArgument(jsonObject);
 
-				// lower
-				for(String lowerString : transformDataOperationConfigProperties.getResourceLowerSortingReferenceSet()){
-					if(eachEntry.getKey().equals(lowerString)){
-						lowerSortingQueue.add(eachEntry.getValue());
-						continue;
-					}
-				}
+			// 실질적인 변환 부분
+			// 해당 영역부터 개별 대상자로 한정
+			Map<String, String> noSearchArg = new HashMap<>();
+			noSearchArg.put("Don't Search Main Volumns", "9999999");
+			referenceDataMatcher.inputMappingData("Standard-Ref", noSearchArg, new HashMap<>());
+			while(sortedQueue.size() != 0){
+				Map.Entry<String, JsonElement> entry = sortedQueue.poll();
 
-				// middle
-				nonSortingQueue.add(eachEntry.getValue());
+				this.createResource(entry);
 			}
-			// 1.2. merge
-			while(upperSortingQueue.size() != 0){
-				sortedQueue.add(upperSortingQueue.poll());
-			}
-			while(nonSortingQueue.size() != 0){
-				sortedQueue.add(nonSortingQueue.poll());
-			}
-			while(lowerSortingQueue.size() != 0){
-				sortedQueue.add(lowerSortingQueue.poll());
-			}
-
-			// 2. StructureMap Read
-
-
-
-			// 3. Save
 
 		}catch(Exception e){
 			e.printStackTrace();
@@ -134,224 +107,400 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 	}
 
 	@Operation(
-		name="$std-test",
+		name="$tranform-resource-detail",
 		idempotent = false,
 		manualRequest = true,
 		manualResponse = true
 	)
-	public void structureMapTest(HttpServletRequest theServletRequest, HttpServletResponse theResponse) throws IOException {
-			FhirContext context = this.getContext();
+	public void transforResourceDetailService(HttpServletRequest theServletRequest, HttpServletResponse theResponse) throws IOException {
+		String retMessage = "-";
+		ourLog.info(" > Create CMC Standard Data Transfor initalized.. ");
 
-			ourLog.info(" >>> StructureMap Test");
-			ourLog.info("transformDataOperationConfigProperties : " + transformDataOperationConfigProperties.getServiceTarget());
 
-			IBaseCoding serachCodeForStructureDef = new Coding();
-			serachCodeForStructureDef.setCode("active");
-			TokenParam searchToken = new TokenParam(serachCodeForStructureDef);
-			SearchParameterMap searchParameterMapForStructureDef = new SearchParameterMap().add(StructureDefinition.SP_STATUS, searchToken);
-			searchParameterMapForStructureDef.setSearchTotalMode(SearchTotalModeEnum.ACCURATE);
-			searchParameterMapForStructureDef.setCount(1000);
-			IFhirResourceDao structureDefinitionResourceProvider = myDaoRegistry.getResourceDao("StructureDefinition");
-			IBundleProvider results = structureDefinitionResourceProvider.search(searchParameterMapForStructureDef);
-			StructureDefinition def = (StructureDefinition) results.getAllResources().get(1);
+		try {
+			byte[] bytes = IOUtils.toByteArray(theServletRequest.getInputStream());
+			String bodyData = new String(bytes);
 
-			ourLog.info(def.getId() + " is the ref id!");
-			
-			// test 목적으로 ID만 활용하여 맵 조회
-			//StringParam param = new StringParam("2202"); // Patient 단위 테스트( 보류 )
-			StringParam param = new StringParam("2252"); // HumanResource 단위
-			SearchParameterMap searchParameterMapForStructureMap = new SearchParameterMap().add(StructureDefinition.SP_RES_ID, param);
-			searchParameterMapForStructureMap.setSearchTotalMode(SearchTotalModeEnum.ACCURATE);
-			searchParameterMapForStructureMap.setCount(1000);
-			IFhirResourceDao structureMapResourceProvider = myDaoRegistry.getResourceDao("StructureMap");
-			IBundleProvider resultsMap = structureMapResourceProvider.search(searchParameterMapForStructureMap);
+			JsonParser jsonParser = new JsonParser();
+			JsonElement jsonElement = jsonParser.parse(bodyData);
+			JsonObject jsonObject = jsonElement.getAsJsonObject();
 
-			ourLog.info("map loaded : size : " + resultsMap.getAllResources().size());
+			Queue<Map.Entry<String, JsonElement>> sortedQueue = sortingCreateResourceArgument(jsonObject);
 
-			StructureMap map = (StructureMap) resultsMap.getAllResources().get(0);
+			// 실질적인 변환 부분
+			// 해당 영역부터 개별 대상자로 한정
+			Map<String, String> noSearchArg = new HashMap<>();
+			noSearchArg.put("Don't Search Main Volumns", "9999999");
+			referenceDataMatcher.inputMappingData("Standard-Ref", noSearchArg, new HashMap<>());
+			while(sortedQueue.size() != 0){
+				Map.Entry<String, JsonElement> entry = sortedQueue.poll();
 
-			// 1. StructureMapUtil 이 가지는 FHIR의 StructureMap 기반의 Transaction 을 테스트한다.
-			// ref. https://confluence.hl7.org/display/FHIR/Using+the+FHIR+Mapping+Language
-			StructureMapUtilities utils = new StructureMapUtilities(hapiWorkerContext);
-
-			// input
-			BaseObject source = new BaseObject();
-			// input.type
-			source.setType("SourceClassA");
-
-			// source.element
-			source.setProperty("test", new StringType("THE VALUES...!"));
-
-			/* 1. NO Resource to No Resource
- 			BaseObject target = new BaseObject();
-			utils.transform(null, source, map, target);
-			*/
-
-			/* 2. Patient 단위 테스트( 보류 )
-			   - 하위 element 부터 차근차근 작업하지 않으면 안 됌. ( 2202 )
-			Patient targetPatient = new Patient();
-			ourLog.info(" >>>>> " + targetPatient.getProperty(3373707, "name.text", true));
-
-			utils.transform(null, source, map, targetPatient);
-			*/
-
-			// 3. MyHumanName -> HumanName
-			// 통과됌. 20923 .11. 12.
-			Map<String, Base> hn = new HashMap<>();
-			hn.put("nameType", new StringType("HumanName"));
-			hn.put("given", new StringType("GIVEN_NAME!"));
-			hn.put("family", new StringType("Family_NAME!"));
-			hn.put("text", new StringType("Text_NAME!"));
-			MyHumanName myHumanName = new MyHumanName(hn);
-			HumanName targetHumanName = new HumanName();
-
-			utils.transform(null, myHumanName, map, targetHumanName);
-
-			utils.transform(targetHumanName, myHumanName, map, targetHumanName);
-			ourLog.info(" >>> HumanName to do : " + getContext().newJsonParser().encodeToString(targetHumanName) + " / " + targetHumanName.getText() + " " + targetHumanName.getGiven());
-
-			// 2. Not active
-			ourLog.info("Str Def size : " + results.getAllResources().size());
-
-			StructureMap map2 = utils.generateMapFromMappings(def);
-			ourLog.info("Created Group Size : " + map.getGroup().size());
-
-			ourLog.info("wonder.. : " + getContext().newJsonParser().encodeResourceToString(map));
-
-			// 4. Patient 에서 HumanName 을 Child 룰로 가져올 수 있는지 확인
-			param = new StringParam("2402"); // HumanResource 단위
-			searchParameterMapForStructureMap = new SearchParameterMap().add(StructureDefinition.SP_RES_ID, param);
-			searchParameterMapForStructureMap.setSearchTotalMode(SearchTotalModeEnum.ACCURATE);
-			searchParameterMapForStructureMap.setCount(1000);
-			resultsMap = structureMapResourceProvider.search(searchParameterMapForStructureMap);
-			ourLog.info("map loaded : size : " + resultsMap.getAllResources().size());
-			StructureMap mapQ4 = (StructureMap) resultsMap.getAllResources().get(0);
-			ourLog.info(" > " + mapQ4.getId());
-			
-			// tip. Map 의 구조분석기. 단 SturcutreMap에 Def가 Source, Target 모두 정형화 되어있지 않으면 오류냄.
-			//utils.analyse(null, mapQ4);
-			Patient pt = new Patient();
-
-			HumanName hm = new HumanName();
-			hm.setText("tx");
-			hm.setFamily("fm");
-			hm.setGiven(new ArrayList<StringType>());
-			List<HumanName> hmli = new ArrayList<HumanName>();
-			hmli.add(hm);
-			pt.setName(hmli);
-			pt.setGender(Enumerations.AdministrativeGender.MALE);
-			try {
-				Property b = pt.getNamedProperty("name");
-				ourLog.info(" >>> Property Test 2) name.family : " + b.getName());
-			}catch(Exception e){
-				ourLog.info("error skip.");
+				this.createResource(entry);
 			}
 
-			try {
-				Property b = pt.getNamedProperty("gender");
-				ourLog.info(" >>> Property Test 2) name.family : " + b.getName());
-			}catch(Exception e){
-				ourLog.info("error skip.");
-			}
-
-			// 계층구조 프로퍼티 가능?
-			try {
-				Property b = pt.getNamedProperty("name.family");
-				ourLog.info(" >>> Property Test 2) name.family : " + b.getName());
-			}catch(Exception e){
-				ourLog.info("error skip.");
-			}
-
-			try {
-				Property b = pt.getNamedProperty("name->family");
-				ourLog.info(" >>> Property Test 2) name.family : " + b.getName());
-			}catch(Exception e){
-				ourLog.info("error skip.");
-			}
-
-			try {
-				Property b = pt.getNamedProperty("name[0].family");
-				ourLog.info(" >>> Property Test 2) name.family : " + b.getName());
-			}catch(Exception e){
-				ourLog.info("error skip.");
-			}
-
-			try {
-				Property b = pt.getNamedProperty("name.first().family");
-				ourLog.info(" >>> Property Test 2) name.family : " + b.getName());
-			}catch(Exception e){
-				ourLog.info("error skip.");
-			}
-
-			utils.transform(null, myHumanName, mapQ4, pt);
-			ourLog.info(" >>> SubRule Patient to do : " + getContext().newJsonParser().encodeResourceToString(pt));
+		}catch(Exception e){
+			e.printStackTrace();
+			retMessage = e.getMessage();
+		}finally{
+			theResponse.setContentType("text/plain");
+			theResponse.getWriter().write(retMessage);
+			theResponse.getWriter().close();
+		}
 	}
 
-	class BaseObject extends Base {
+	// 리소스를 생성한다.
+	private void createResource(Map.Entry<String, JsonElement> entry){
+		JsonElement elements = entry.getValue();
+		JsonArray jsonArray = elements.getAsJsonArray();
 
-		private String type;
+		for(int eachRowCount = 0; jsonArray.size() > eachRowCount; eachRowCount++){
+			JsonObject eachRowJsonObj = jsonArray.get(eachRowCount).getAsJsonObject();
+			Map<String, String> rowMap = convertJsonObjectToMap(eachRowJsonObj);
+			if ("organization".equals(entry.getKey())) {
+				ourLog.info("-------------------------- Organization");
+				Organization organization = cmcDataTransforService.transformPlatDataToFhirOrganization(rowMap);
 
-		// target.elements
-		public Base testValue;
+				referenceDataMatcher.setReference("Standard-Ref", "Organization", new Reference(organization.getId()));
+				referenceDataMatcher.setReference("Standard-Ref", "Organization-oid", new Reference(organization.getIdentifier().get(0).getValue()));
 
-		public String getType() {
-			return type;
+				// 2. 생성요청
+				IFhirResourceDao resourceProviderForOrganization = myDaoRegistry.getResourceDao("Organization");
+				resourceProviderForOrganization.update(organization);
+
+				loggingInDebugMode("organ : " + fn.newJsonParser().encodeResourceToString(organization));
+			} else if ("patient".equals(entry.getKey())) {
+				ourLog.info("-------------------------- Patient");
+				String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("Organization").getReference();
+				Patient patient = cmcDataTransforService.transformPlatDataToFhirPatient(organizationId, rowMap);
+				referenceDataMatcher.setReference("Standard-Ref", "Patient" , new Reference(patient.getId()));
+
+				// 2. 생성요청
+				IFhirResourceDao resourceProviderForPatient = myDaoRegistry.getResourceDao("Patient");
+				resourceProviderForPatient.update(patient);
+
+				loggingInDebugMode("patient : " + fn.newJsonParser().encodeResourceToString(patient));
+			} else if ("practitioner".equals(entry.getKey())) {
+				ourLog.info("-------------------------- practition Data");
+
+				String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("Organization").getReference();
+
+				Practitioner practitioner = cmcDataTransforService.transformPlatDataToFhirPractitioner(organizationId, rowMap);
+
+				referenceDataMatcher.setReference("Standard-Ref", practitioner.getId(), new Reference(practitioner.getId()));
+				String practitionerId = practitioner.getId();
+
+				// 2. 생성요청
+				IFhirResourceDao resourceProviderForPractitioner = myDaoRegistry.getResourceDao("Practitioner");
+				resourceProviderForPractitioner.update(practitioner);
+
+				loggingInDebugMode("practitioner Data : " + fn.newJsonParser().encodeResourceToString(practitioner));
+			}else if("practitionerrole".equals(entry.getKey())) {
+				String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("Organization").getReference();
+				String practitionerId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("PRCT." + organizationId + "." + rowMap.get("ord_dr_id")).getReference();
+
+				PractitionerRole practitionerRole = cmcDataTransforService.transformPlatDataToFhirPractitionerRole(organizationId, practitionerId, rowMap);
+				referenceDataMatcher.setReference("Standard-Ref", practitionerRole.getId(), new Reference(practitionerRole.getId()));
+
+				// 2. 생성요청
+				IFhirResourceDao resourceProviderForPractitionerRole = myDaoRegistry.getResourceDao("PractitionerRole");
+				resourceProviderForPractitionerRole.update(practitionerRole);
+
+				loggingInDebugMode("practitionRole Data : " + fn.newJsonParser().encodeResourceToString(practitionerRole));
+			}else if ("encounter".equals(entry.getKey())) {
+				ourLog.info("-------------------------- Encounter");
+
+				String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("Organization").getReference();
+				String patientId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("Patient").getReference();
+				String practitionerRoleId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("PROL." + organizationId + "." + rowMap.get("ord_dr_id")).getReference();
+				String practitionerId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("PRCT." + organizationId + "." + rowMap.get("ord_dr_id")).getReference();
+
+				Encounter encounter = cmcDataTransforService.transformPlatDataToFhirEncounter(organizationId, practitionerRoleId, patientId, rowMap);
+
+				//encounterId = encounter.getId();
+				LinkedHashMap<String, String> identifierSet = new LinkedHashMap<>();
+				identifierSet.put("inst_cd", rowMap.get("inst_cd"));
+				identifierSet.put("pid", rowMap.get("pid"));
+				identifierSet.put("ord_dd", rowMap.get("ord_dd"));
+				identifierSet.put("ord_dept_cd", rowMap.get("ord_dept_cd"));
+				identifierSet.put("ord_type_cd", rowMap.get("ord_type_cd"));
+				identifierSet.put("ord_dr_id", rowMap.get("ord_dr_id"));
+				identifierSet.put("cret_no", rowMap.get("cret_no"));
+
+				Map<String, Reference> encounterIncludedRefSet = new HashMap<>();
+				encounterIncludedRefSet.put("Organization", new Reference(organizationId));
+				encounterIncludedRefSet.put("Patient", new Reference(patientId));
+				encounterIncludedRefSet.put("Encounter", new Reference(encounter.getId()));
+				encounterIncludedRefSet.put("Practitioner", new Reference(practitionerId));
+				encounterIncludedRefSet.put("PractitionerRole", new Reference(practitionerRoleId));
+				String id = referenceDataMatcher.inputMappingData(identifierSet, encounterIncludedRefSet);
+
+				IFhirResourceDao resourceProviderForEncounter = myDaoRegistry.getResourceDao("Encounter");
+				resourceProviderForEncounter.update(encounter);
+
+				loggingInDebugMode("encounter Data : " + fn.newJsonParser().encodeResourceToString(encounter));
+			} else if("condition".equals(entry.getKey())){
+				ourLog.info("-------------------------- Condition");
+
+				Map<String, String> identifierSet = new HashMap<>();
+				identifierSet.put("inst_cd", rowMap.get("inst_cd"));
+				identifierSet.put("pid", rowMap.get("pid"));
+				identifierSet.put("ord_dd", rowMap.get("ord_dd"));
+				identifierSet.put("ord_dept_cd", rowMap.get("ord_dept_cd"));
+				identifierSet.put("ord_type_cd", rowMap.get("io_flag"));
+				identifierSet.put("ord_dr_id", rowMap.get("ord_dr_id"));
+				identifierSet.put("cret_no", rowMap.get("cret_no"));
+
+				ReferenceDataSet ds = referenceDataMatcher.searchMapperWithMapType(identifierSet);
+				if (ds == null) {
+					if (transformDataOperationConfigProperties.isTransforIgnoreHasNoEncounter()) {
+						loggingInDebugMode(" > 해당 리소스의 Encounter 를 찾을 수 없어 해당 데이터는 생성이 생략되었습니다. " + identifierSet);
+						continue;
+					} else {
+						throw new IllegalArgumentException(" > 해당 리소스의 Encounter를 찾을 수 없어 오류가 발생하였습니다.");
+					}
+				}
+
+				String organizationId = ds.getReferenceList().get("Organization").getReference();
+				String patientId = ds.getReferenceList().get("Patient").getReference();
+				String encounterId = ds.getReferenceList().get("Encounter").getReference();
+
+				Condition condition = cmcDataTransforService.transformPaltDataToFhirCondition(organizationId, patientId, encounterId, rowMap);
+				String identifiedRefer = referenceDataMatcher.searchMapperWithMapTypeRetKeyStr(identifierSet);
+
+				IFhirResourceDao resourceProviderForCondition = myDaoRegistry.getResourceDao("Condition");
+				resourceProviderForCondition.create(condition);
+
+				referenceDataMatcher.setReference(identifiedRefer, condition.getIdentifier().get(0).getValue(), new Reference(condition.getIdPart()));
+				loggingInDebugMode("condition Data : " + fn.newJsonParser().encodeResourceToString(condition));
+
+			}else if("medicationrequest".equals(entry.getKey())){
+				ourLog.info("-------------------------- medicationrequest");
+				// 1. 대상 진료 이력을 해당 리소스 기준에 맞게 조회하여 모든 레퍼런스 가져오기
+				Map<String, String> identifierSet = new HashMap<>();
+				identifierSet.put("inst_cd", rowMap.get("inst_cd"));
+				identifierSet.put("pid", rowMap.get("pid"));
+				identifierSet.put("ord_dd", rowMap.get("ord_dd"));
+				identifierSet.put("ord_dept_cd", rowMap.get("ord_dept_cd"));
+				identifierSet.put("ord_type_cd", rowMap.get("ord_type_cd"));
+				identifierSet.put("ord_dr_id", rowMap.get("ord_dr_id"));
+				identifierSet.put("io_flag", rowMap.get("io_flag"));
+				ReferenceDataSet ds = referenceDataMatcher.searchMapperWithMapType(identifierSet);
+				if (ds == null) {
+					if (transformDataOperationConfigProperties.isTransforIgnoreHasNoEncounter()) {
+						loggingInDebugMode(" > 해당 리소스의 Encounter 를 찾을 수 없어 해당 데이터는 생성이 생략되었습니다. " + identifierSet);
+						continue;
+					} else {
+						throw new IllegalArgumentException(" > 해당 리소스의 Encounter를 찾을 수 없어 오류가 발생하였습니다.");
+					}
+				}
+
+				String organizationId = ds.getReferenceList().get("Organization").getReference();
+				String patientId = ds.getReferenceList().get("Patient").getReference();
+				String practitionerId = ds.getReferenceList().get("Practitioner").getReference();
+				String practitionerRoleId = ds.getReferenceList().get("PractitionerRole").getReference();
+				String encounterId = ds.getReferenceList().get("Encounter").getReference();
+
+				// 1.1. medication, medicationRequest 를 분개 불가능한 경우 활용
+				// 기준자료와 거의 동일하고, edi_cd 외에는 키값 분개 할 이유가 없는 전 병원 공통이므로 mapper에 반영치 아니함.
+				Medication medication = cmcDataTransforService.transformPlatDataToFhirMedication(rowMap);
+				IFhirResourceDao resourceProviderForMedication = myDaoRegistry.getResourceDao("Medication");
+				resourceProviderForMedication.update(medication);
+
+				loggingInDebugMode("Medication : " + cmcDataTransforService.retResourceToString(medication));
+
+				// 2. 대상 리소스 생성요청
+				MedicationRequest medicationReqeust =  cmcDataTransforService.transformPlatDataToFhirMedicationRequest(organizationId, patientId, practitionerRoleId, encounterId, rowMap);
+
+				// 3. 데이터 생성
+				// 아이디 부여가 없는 경우 create
+				IFhirResourceDao resourceProviderForMedicationRequest = myDaoRegistry.getResourceDao("MedicationRequest");
+				resourceProviderForMedicationRequest.update(medicationReqeust);
+
+				loggingInDebugMode("MedicationRequest : " + cmcDataTransforService.retResourceToString(medicationReqeust));
+
+			}else if("observation-exam".equals(entry.getKey())){
+				ourLog.info("-------------------------- observation-exam");
+				Map<String, String> identifierSet = new HashMap<>();
+				identifierSet.put("inst_cd", rowMap.get("inst_cd"));
+				identifierSet.put("pid", rowMap.get("pid"));
+				identifierSet.put("ord_dd", rowMap.get("ord_dd"));
+				identifierSet.put("ord_dept_cd", rowMap.get("ord_dept_cd"));
+				identifierSet.put("ord_type_cd", rowMap.get("io_flag"));
+				identifierSet.put("ord_dr_id", rowMap.get("ord_dr_id"));
+				ReferenceDataSet ds = referenceDataMatcher.searchMapperWithMapType(identifierSet);
+				if (ds == null) {
+					if (transformDataOperationConfigProperties.isTransforIgnoreHasNoEncounter()) {
+						loggingInDebugMode(" > 해당 리소스의 Encounter 를 찾을 수 없어 해당 데이터는 생성이 생략되었습니다. " + identifierSet);
+						continue;
+					} else {
+						throw new IllegalArgumentException(" > 해당 리소스의 Encounter를 찾을 수 없어 오류가 발생하였습니다.");
+					}
+				}
+
+				String organizationId = ds.getReferenceList().get("Organization").getReference();
+				String patientId = ds.getReferenceList().get("Patient").getReference();
+				String encounterId = ds.getReferenceList().get("Encounter").getReference();
+
+				Observation observation = cmcDataTransforService.transformPlatDataToFhirObservationExam(organizationId, patientId, encounterId, rowMap);
+				IFhirResourceDao resourceProviderForServiceRequest = myDaoRegistry.getResourceDao("Observation");
+				resourceProviderForServiceRequest.update(observation);
+
+				loggingInDebugMode("Observation Request : " + cmcDataTransforService.retResourceToString(observation));
+
+			}else if("medication".equals(entry.getKey())){
+				ourLog.info("-------------------------- Medication");
+				// medication, medicationRequest 를 분개 가능한 경우 활용
+
+
+			}else if("procedure".equals(entry.getKey())){
+				ourLog.info("-------------------------- Procedure");
+				Map<String, String> identifierSet = new HashMap<>();
+				identifierSet.put("inst_cd", rowMap.get("inst_cd"));
+				identifierSet.put("pid", rowMap.get("pid"));
+				identifierSet.put("ord_dd", rowMap.get("ord_dd"));
+				identifierSet.put("ord_dept_cd", rowMap.get("ord_dept_cd"));
+				identifierSet.put("ord_dr_id", rowMap.get("ord_dr_id"));
+				ReferenceDataSet ds = referenceDataMatcher.searchMapperWithMapType(identifierSet);
+				if (ds == null) {
+					if (transformDataOperationConfigProperties.isTransforIgnoreHasNoEncounter()) {
+						loggingInDebugMode(" > 해당 리소스의 Encounter 를 찾을 수 없어 해당 데이터는 생성이 생략되었습니다. " + identifierSet);
+						continue;
+					} else {
+						throw new IllegalArgumentException(" > 해당 리소스의 Encounter를 찾을 수 없어 오류가 발생하였습니다.");
+					}
+				}
+
+				String organizationId = ds.getReferenceList().get("Organization").getReference();
+				String patientId = ds.getReferenceList().get("Patient").getReference();
+				String encounterId = ds.getReferenceList().get("Encounter").getReference();
+
+				Procedure procedure = cmcDataTransforService.transformPlatDataToFhirProcedure(organizationId, patientId, encounterId, rowMap);
+				IFhirResourceDao resourceProviderForServiceRequest = myDaoRegistry.getResourceDao("Procedure");
+				resourceProviderForServiceRequest.update(procedure);
+
+				loggingInDebugMode("Procedure Request : " + cmcDataTransforService.retResourceToString(procedure));
+
+			}else if ("serviceRequest".equals(entry.getKey())) {
+				ourLog.info("-------------------------- ServiceRequest");
+				Map<String, String> identifierSet = new HashMap<>();
+				identifierSet.put("inst_cd", rowMap.get("inst_cd"));
+				identifierSet.put("pid", rowMap.get("pid"));
+				identifierSet.put("ord_dd", rowMap.get("prcp_dd"));
+				identifierSet.put("ord_dept_cd", rowMap.get("rgst_dept_cd"));
+				identifierSet.put("ord_type_cd", rowMap.get("io_flag"));
+				identifierSet.put("ord_dr_id", rowMap.get("prcp_dr_id"));
+				identifierSet.put("io_flag", rowMap.get("io_flag"));
+				ReferenceDataSet ds = referenceDataMatcher.searchMapperWithMapType(identifierSet);
+				if(ds == null){
+					if(transformDataOperationConfigProperties.isTransforIgnoreHasNoEncounter()){
+						loggingInDebugMode(" > 해당 리소스의 Encounter 를 찾을 수 없어 해당 데이터는 생성이 생략되었습니다. " + identifierSet);
+						continue;
+					}else{
+						throw new IllegalArgumentException(" > 해당 리소스의 Encounter를 찾을 수 없어 오류가 발생하였습니다.");
+					}
+				}
+
+				String organizationId = ds.getReferenceList().get("Organization").getReference();
+				String patientId = ds.getReferenceList().get("Patient").getReference();
+				String practitionerId = ds.getReferenceList().get("Practitioner").getReference();
+				String practitionerRoleId = ds.getReferenceList().get("PractitionerRole").getReference();
+				String encounterId = ds.getReferenceList().get("Encounter").getReference();
+
+				ServiceRequest serviceRequest = cmcDataTransforService.transformPlatDataToFhirServiceRequest(organizationId, patientId, practitionerRoleId, encounterId, rowMap);
+
+				IFhirResourceDao resourceProviderForServiceRequest = myDaoRegistry.getResourceDao("ServiceRequest");
+				resourceProviderForServiceRequest.update(serviceRequest);
+
+				loggingInDebugMode("service Request : " + cmcDataTransforService.retResourceToString(serviceRequest));
+			}else{
+				loggingInDebugMode(" >>>>> UN Develops Resource : " + entry.getKey());
+			}
 		}
-
-		public void setType(String type) {
-			this.type = type;
-		}
-
-		@Override
-		public String fhirType() {
-			return type;
-		}
-
-		@Override
-		protected void listChildren(List<Property> list) {
-			ourLog.info(" >> {DEV} listChildren");
-		}
-
-		@Override
-		public String getIdBase() {
-			return getIdBase();
-		}
-
-		@Override
-		public void setIdBase(String s) {
-			getUserData(s);
-		}
-
-		@Override
-		public Base copy() {
-			return copy();
-		}
-
-		@Override
-		public Base setProperty(String name, Base value) throws FHIRException {
-			ourLog.info(" [DEV] Custom Base setProperty init in MapUtil..!  / name : " + name + "  value : " + value);
-			setUserData(name, value);
-			return value;
-		}
-
-		@Override
-		public Base[] getProperty(int hash, String name, boolean checkValid) throws FHIRException {
-			ourLog.info(" [DEV] Custom Base getProperty init in MapUtil..!  / hash : " + hash + " name : " + name + "  checkValid : " + checkValid);
-			//if (checkValid) {
-			 try {
-				 Base[] ba = new Base[1];
-				 ba[0] = new StringType("TEST...!!");
-				 return ba;
-			 }catch(Exception e){
-				 e.printStackTrace();
-				 ourLog.error("?????????????????? " + e.getMessage());
-				 return null;
-			 }
-				//return super.getProperty(hash, name, checkValid);
-			//} else {
-			//	return null;
-			//}
-		}
-
 	}
+
+	// 2023. 11. 13. 요구로 온 데이터들의 대하여 래퍼런스 구조에 맞게 Sorting 처리한다.
+	private Queue<Map.Entry<String, JsonElement>> sortingCreateResourceArgument(JsonObject jsonObject){
+		Queue<Map.Entry<String, JsonElement>> upperSortingQueue = new LinkedList<>();
+		Queue<Map.Entry<String, JsonElement>> lowerSortingQueue = new LinkedList<>();
+		Queue<Map.Entry<String, JsonElement>> nonSortingQueue = new LinkedList<>();
+		Queue<Map.Entry<String, JsonElement>> sortedQueue = new LinkedList<>();
+
+		// Upper
+		for(String upperString : transformDataOperationConfigProperties.getResourceUpperSortingReferenceSet()){
+			for(Map.Entry<String, JsonElement> eachEntry : jsonObject.entrySet()){
+				if(eachEntry.getKey().equals(upperString)){
+					upperSortingQueue.add(eachEntry);
+				}
+			}
+		}
+
+		// Lower
+		for(String lowerString : transformDataOperationConfigProperties.getResourceLowerSortingReferenceSet()){
+			for(Map.Entry<String, JsonElement> eachEntry : jsonObject.entrySet()){
+				if(eachEntry.getKey().equals(lowerString)){
+					lowerSortingQueue.add(eachEntry);
+				}
+			}
+		}
+
+		// Non
+		Set<String> nonSortingList = new HashSet<>();
+		nonSortingList.addAll(transformDataOperationConfigProperties.getResourceUpperSortingReferenceSet());
+		nonSortingList.addAll(transformDataOperationConfigProperties.getResourceLowerSortingReferenceSet());
+		for(Map.Entry<String, JsonElement> eachEntry : jsonObject.entrySet()){
+			boolean isAlreadySorted = false;
+			for(String nonString : nonSortingList){
+				if(eachEntry.getKey().equals(nonString)){
+					isAlreadySorted = true;
+				}
+			}
+			if(isAlreadySorted != true){
+				nonSortingQueue.add(eachEntry);
+			}
+		}
+
+		// 1.2. merge
+		while(upperSortingQueue.size() != 0){
+			sortedQueue.add(upperSortingQueue.poll());
+		}
+		while(nonSortingQueue.size() != 0){
+			sortedQueue.add(nonSortingQueue.poll());
+		}
+		while(lowerSortingQueue.size() != 0){
+			sortedQueue.add(lowerSortingQueue.poll());
+		}
+
+		return sortedQueue;
+	}
+
+	// 2023. 11. 14. Json Object 를 Map 으로 치환한다.
+	private Map<String, String> convertJsonObjectToMap(JsonObject jsonObject) {
+		Gson gson = new Gson();
+
+		// Gson이 Return 을 바로 Map<String, String> 을 보내더라도, 숫자형 값들의 대하여는 Double Type으로 반환하여 Map에 넣는 이슈가 있어 추가작업
+		//  + 변수가 정수여도 Double 형변환이 일어나(ex.. cretno=1.0) 이를 검증하고 치환하는 로직을 추가
+		Map<String, Object> reqData = gson.fromJson(jsonObject, Map.class);
+		Map<String, String> data = reqData.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> convertObjectToString(e.getValue())));
+		return data;
+	}
+
+	private static String convertObjectToString(Object value) {
+		if (value instanceof Number) {
+			Number number = (Number) value;
+			// 정수와 실수를 구분
+			if (number.doubleValue() == number.longValue()) {
+				return Long.toString(number.longValue());
+			} else {
+				return Double.toString(number.doubleValue());
+			}
+		}
+		return value.toString();
+	}
+
+	private void loggingInDebugMode(String arg){
+		if(transformDataOperationConfigProperties.isTransforLogging()){
+			ourLog.info(arg);
+		}
+	}
+
 }
