@@ -81,6 +81,39 @@ public interface CmcDataTransforService {
 
 	/**
 	 * Transform plat data to fhir observation observation.
+	 *
+	 * @param organizationId the organization id
+	 * @param patientId      the patient id
+	 * @param encounterId    the encounter id
+	 * @param requestMap     the request map
+	 * @return the observation
+	 */
+	public Observation transformPlatDataToFhirObservation(String organizationId, String patientId, String encounterId, Map<String, String> requestMap);
+
+	/**
+	 * Transform plat data to fhir diagnostic report pathology diagnostic report.
+	 *
+	 * @param organizationId the organization id
+	 * @param patientId      the patient id
+	 * @param encounterId    the encounter id
+	 * @param requestMap     the request map
+	 * @return the diagnostic report
+	 */
+	public DiagnosticReport transformPlatDataToFhirDiagnosticReportPathology(String organizationId, String patientId, String encounterId, Map<String, String> requestMap);
+
+	/**
+	 * Transform plat data to fhir diagnostic report radiology diagnostic report.
+	 *
+	 * @param organizationId the organization id
+	 * @param patientId      the patient id
+	 * @param encounterId    the encounter id
+	 * @param requestMap     the request map
+	 * @return the diagnostic report
+	 */
+	public DiagnosticReport transformPlatDataToFhirDiagnosticReportRadiology(String organizationId, String patientId, String encounterId, Map<String, String> requestMap);
+
+	/**
+	 * Transform plat data to fhir observation observation.
 	 * KR Core의 기능검사 측정 정보에 적용되는 Observation 구조. 기능검사는 진단검사, 영상검사, 병리검사를 제외한 검사를 의미함
 	 * @param requestMap the request map
 	 * @return the observation

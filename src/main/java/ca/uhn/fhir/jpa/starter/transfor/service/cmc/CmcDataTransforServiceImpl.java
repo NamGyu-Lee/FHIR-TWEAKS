@@ -296,10 +296,11 @@ public class CmcDataTransforServiceImpl implements CmcDataTransforService {
 		Encounter encounter = new Encounter();
 		String uniqueId = "ENC."
 			               + organizationId + "."
-								+ requestMap.get("clam_dept_cd") + "."
+								+ requestMap.get("ord_dept_cd") + "."
 				    			+ requestMap.get("ord_dd") + "."
 								+ requestMap.get("cret_no") + "."
-								+ requestMap.get("ord_dr_id")
+								+ requestMap.get("ord_dr_id") + "."
+								+ requestMap.get("ord_type_cd")
 		;
 
 		// identifier
@@ -542,11 +543,134 @@ public class CmcDataTransforServiceImpl implements CmcDataTransforService {
 		reqIdentifier.put("display", requestMap.get("edi_nm"));
 		medication.setIdentifier(createIdentifier(null, reqIdentifier));
 
+		// profile
+		Meta meta = new Meta();
+		meta.setProfile(createProfiles("http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-medication"));
+		medication.setMeta(meta);
+
 		// status
 		medication.setStatus(Medication.MedicationStatus.ACTIVE);
 
+		// ingredient
+		List<Medication.MedicationIngredientComponent> medicationIngredientComponentList = new ArrayList<>();
+		Medication.MedicationIngredientComponent medicationIngredientComponent = new Medication.MedicationIngredientComponent();
+		CodeableConcept concept = new CodeableConcept();
+		List<Coding> codingList = new ArrayList<>();
+		Coding coding = new Coding();
+		coding.setSystem("http://www.whocc.no/atc");
+		coding.setCode(requestMap.get("edi_cd"));
+		codingList.add(coding);
+		concept.setCoding(codingList);
+		medicationIngredientComponent.setItem(concept);
+		medicationIngredientComponentList.add(medicationIngredientComponent);
+		medication.setIngredient(medicationIngredientComponentList);
+
 		return medication;
 	}
+
+
+	@Override
+	public Observation transformPlatDataToFhirObservation(String organizationId, String patientId, String encounterId, Map<String, String> requestMap){
+		Observation observation = new Observation();
+
+		String uniqueId = "OB." + organizationId + "." + patientId + requestMap.get("exec_prcp_uniq_no");
+
+		// id
+		observation.setId(uniqueId);
+
+		// identifier
+		Map<String, String> reqIdentifier = new HashMap<>();
+		reqIdentifier.put("system", "http://www.hl7korea.or.kr/Identifier/local-observation-identifier");
+		reqIdentifier.put("value", uniqueId);
+		observation.setIdentifier(createIdentifier(null, reqIdentifier));
+
+		// status
+		observation.setStatus(Observation.ObservationStatus.FINAL);
+
+		// profile
+		Meta meta = new Meta();
+		meta.setProfile(createProfiles("http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-observation-laboratory-result", "http://connectdtx.kr/fhir/StructureDefinition/connectdtx-observation"));
+		observation.setMeta(meta);
+
+		// category
+		List<CodeableConcept> conceptList = new ArrayList<>();
+		CodeableConcept concept = new CodeableConcept();
+		List<Coding> codingList = new ArrayList<>();
+		Coding coding = new Coding();
+		coding.setSystem("http://terminology.hl7.org/CodeSystem/observation-category");
+		coding.setCode("laboratory");
+		codingList.add(coding);
+		concept.setCoding(codingList);
+		observation.setCategory(conceptList);
+
+		// issue
+		try {
+			observation.setIssued(SDF_YMD.parse(requestMap.get("prcp_dd")));
+		}catch (ParseException e){
+			throw new IllegalArgumentException("Observation 생성 과정중 오류가 발생하였습니다. 실시일자(test_dt) 파싱 과정에서 오류가 발생하였습니다.");
+		}
+
+		// code
+		CodeableConcept conceptForCoding = new CodeableConcept();
+		List<Coding> codingListForCoding = new ArrayList<>();
+		Coding codingForCoding = new Coding();
+		codingForCoding.setSystem("https://hira.or.kr/CodeSystem/lab-result-code");
+		codingForCoding.setCode(requestMap.get("edi_cd"));
+		codingForCoding.setDisplay(requestMap.get("test_cls_nm"));
+		codingListForCoding.add(codingForCoding);
+		conceptForCoding.setCoding(codingListForCoding);
+		observation.setCode(conceptForCoding);
+
+		// value
+		if("valueQuantity".equals(requestMap.get("chk_flag"))){
+			Quantity quantity = new Quantity();
+			quantity.setValue(Double.parseDouble(requestMap.get("rslt_val")));
+			quantity.setUnit(requestMap.get("rslt_val_unit_cd"));
+			observation.setValue(quantity);
+		}else if("valueString".equals(requestMap.get(""))){
+			StringType stringType = new StringType();
+			stringType.setValue(requestMap.get("rslt_val"));
+		}else{
+			throw new IllegalArgumentException("Observation 생성 과정중 오류가 발생하였습니다. 정상적인 결과값 유형이 아닙니다.");
+		}
+
+		// referenceRange
+		if("valueQuantity".equals(requestMap.get("chk_flag"))) {
+			Observation.ObservationReferenceRangeComponent component = new Observation.ObservationReferenceRangeComponent();
+			String rfvlLower = requestMap.get("rslt_val");
+			String rfvlUpper = requestMap.get("rslt_val");
+			if (rfvlLower != null && rfvlUpper != null) {
+				Quantity quantityLow = new Quantity(Double.parseDouble(rfvlLower));
+				quantityLow.setUnit(requestMap.get("rslt_val_unit_cd"));
+				component.setLow(quantityLow);
+
+				Quantity quantityUpper = new Quantity(Double.parseDouble(rfvlUpper));
+				quantityUpper.setUnit(requestMap.get("rslt_val_unit_cd"));
+				component.setLow(quantityUpper);
+			} else if (rfvlLower == null && rfvlUpper != null) {
+				Quantity quantityUpper = new Quantity(Double.parseDouble(rfvlUpper));
+				quantityUpper.setUnit(requestMap.get("rslt_val_unit_cd"));
+				component.setLow(quantityUpper);
+			} else if (rfvlUpper == null && rfvlLower != null) {
+				Quantity quantityLow = new Quantity(Double.parseDouble(rfvlLower));
+				quantityLow.setUnit(requestMap.get("rslt_val_unit_cd"));
+				component.setLow(quantityLow);
+			}
+
+			List<Observation.ObservationReferenceRangeComponent> componentList = new ArrayList<>();
+			componentList.add(component);
+			observation.setReferenceRange(componentList);
+		}
+
+		// subject
+		observation.setSubject(new Reference("Patient/" + patientId));
+
+		// encounter
+		observation.setEncounter(new Reference("Encounter/" + encounterId));
+
+		return observation;
+	}
+
 
 	@Override
 	public Observation transformPlatDataToFhirObservationExam(String organizationId, String patientId, String encounterId, Map<String, String> requestMap){
@@ -559,7 +683,7 @@ public class CmcDataTransforServiceImpl implements CmcDataTransforService {
 
 		// identifier
 		Map<String, String> reqIdentifier = new HashMap<>();
-		reqIdentifier.put("system", "http://www.hl7korea.or.kr/Identifier/local-medicationRequest-identifier");
+		reqIdentifier.put("system", "http://www.hl7korea.or.kr/Identifier/local-observation-exam-identifier");
 		reqIdentifier.put("value", uniqueId);
 		observation.setIdentifier(createIdentifier(null, reqIdentifier));
 
@@ -615,6 +739,114 @@ public class CmcDataTransforServiceImpl implements CmcDataTransforService {
 		 observation.setEffective(dt);
 
 		return observation;
+	}
+
+	@Override
+	public DiagnosticReport transformPlatDataToFhirDiagnosticReportPathology(String organizationId, String patientId, String encounterId, Map<String, String> requestMap){
+		DiagnosticReport diagnosticReport = new DiagnosticReport();
+
+		String uniqueId = "DR.P." + organizationId + "." + requestMap.get("exec_prcp_uniq_no");
+
+		// id
+		diagnosticReport.setId(uniqueId);
+
+		// identifier
+		Map<String, String> reqIdentifier = new HashMap<>();
+		reqIdentifier.put("system", "http://www.hl7korea.or.kr/Identifier/local-diagnosticReport-pat-identifier" );
+		reqIdentifier.put("value", uniqueId);
+		diagnosticReport.setIdentifier(createIdentifier(null, reqIdentifier));
+
+		// profile
+		Meta meta = new Meta();
+		meta.setProfile(createProfiles("http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-diagnosticreport-pathology-results"));
+		diagnosticReport.setMeta(meta);
+
+		// state
+		diagnosticReport.setStatus(DiagnosticReport.DiagnosticReportStatus.FINAL);
+
+		// code
+		CodeableConcept concept = new CodeableConcept();
+		List<Coding> codingList = new ArrayList<>();
+		Coding coding = new Coding();
+		coding.setSystem("http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure");
+		coding.setCode(requestMap.get("edi_cd"));
+		coding.setDisplay(requestMap.get("cd_text_nm"));
+		codingList.add(coding);
+		concept.setCoding(codingList);
+		concept.setText(requestMap.get("cd_text_nm"));
+		diagnosticReport.setCode(concept);
+
+		// effective DateTime
+		try {
+			diagnosticReport.setEffective(new DateType(SDF_YMD.parse(requestMap.get("EXEC_DT"))));
+		}catch(ParseException e){
+			throw new IllegalArgumentException("DiagnosticReport 형성 과정에서 오류가 발생하였습니다. 생성일자가 YYYYMMDD 형식이 아닙니다.");
+		}
+		// conclusion
+		diagnosticReport.setConclusion(requestMap.get("concl_val"));
+
+		// subject
+		diagnosticReport.setSubject(new Reference("Patient/" + patientId));
+
+		// encounter
+		diagnosticReport.setEncounter(new Reference("Encounter/" + encounterId));
+
+		return diagnosticReport;
+	}
+
+	@Override
+	public DiagnosticReport transformPlatDataToFhirDiagnosticReportRadiology(String organizationId, String patientId, String encounterId, Map<String, String> requestMap){
+		DiagnosticReport diagnosticReport = new DiagnosticReport();
+		String uniqueId = "DR.R." + organizationId + "." + requestMap.get("exec_prcp_uniq_no");
+
+		// id
+		diagnosticReport.setId(uniqueId);
+
+		// identifier
+		Map<String, String> reqIdentifier = new HashMap<>();
+		reqIdentifier.put("system", "http://www.hl7korea.or.kr/Identifier/local-diagnosticReport-rdo-identifier" );
+		reqIdentifier.put("value", uniqueId);
+		diagnosticReport.setIdentifier(createIdentifier(null, reqIdentifier));
+
+		// profile
+		Meta meta = new Meta();
+		meta.setProfile(createProfiles("http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-diagnosticreport-diagnostic-imaging"));
+		diagnosticReport.setMeta(meta);
+
+		// status
+		diagnosticReport.setStatus(DiagnosticReport.DiagnosticReportStatus.FINAL);
+
+		// category
+		List<CodeableConcept> categoryCodeList = new ArrayList<>();
+		CodeableConcept categoryConcept = new CodeableConcept();
+		List<Coding> categoryCodingList = new ArrayList<>();
+		Coding categoryCoding = new Coding();
+		categoryCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0074");
+		categoryCoding.setCode("IMG");
+		categoryCodingList.add(categoryCoding);
+		categoryConcept.setCoding(categoryCodingList);
+		categoryCodeList.add(categoryConcept);
+		diagnosticReport.setCategory(categoryCodeList);
+
+		// code
+		CodeableConcept concept = new CodeableConcept();
+		List<Coding> codingList = new ArrayList<>();
+		Coding coding = new Coding();
+		coding.setSystem("http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure");
+		coding.setCode(requestMap.get("edi_cd"));
+		coding.setDisplay(requestMap.get("test_nm"));
+		codingList.add(coding);
+		concept.setCoding(codingList);
+		concept.setText(requestMap.get("text_nm"));
+		diagnosticReport.setCode(concept);
+
+		// subject
+		diagnosticReport.setSubject(new Reference("Patient/" + patientId));
+
+		// encounter
+		diagnosticReport.setEncounter(new Reference("Encounter/"+ encounterId));
+
+		return diagnosticReport;
 	}
 
 	@Override

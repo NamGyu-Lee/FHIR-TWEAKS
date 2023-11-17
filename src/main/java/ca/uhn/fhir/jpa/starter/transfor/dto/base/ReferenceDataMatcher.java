@@ -41,7 +41,7 @@ public class ReferenceDataMatcher {
 				continue;
 			}
 
-			// 조회할 상태 키셋과 메인 키셋중에 부분적으로 맞으면 리턴한다.
+			// 조회할 상태 키셋과 메인 키셋중에 부분적으로 맞으면 리턴한다
 			for(String conditionKey : identifierMap.keySet()){
 				if(requestConditionMap.get(conditionKey) == null){
 					conditionChecker = true;

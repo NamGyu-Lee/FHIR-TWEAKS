@@ -4,13 +4,21 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
 import ca.uhn.fhir.jpa.provider.BaseJpaProvider;
+import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
 import ca.uhn.fhir.jpa.starter.transfor.dto.base.ReferenceDataMatcher;
 import ca.uhn.fhir.jpa.starter.transfor.dto.base.ReferenceDataSet;
 import ca.uhn.fhir.jpa.starter.transfor.service.cmc.CmcDataTransforServiceImpl;
+import ca.uhn.fhir.model.api.IQueryParameterType;
+import ca.uhn.fhir.rest.annotation.IdParam;
 import ca.uhn.fhir.rest.annotation.Operation;
+import ca.uhn.fhir.rest.api.SearchTotalModeEnum;
+import ca.uhn.fhir.rest.api.server.IBundleProvider;
+import ca.uhn.fhir.rest.param.StringParam;
+import ca.uhn.fhir.rest.param.TokenParam;
 import com.google.gson.*;
 import org.apache.commons.io.IOUtils;
+import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.hapi.ctx.HapiWorkerContext;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
@@ -24,9 +32,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- *  2023. 11. 07. CMC 기반의 EMR시스템에서 접근하는 Operation의 대하여 핸들링한다.
+ * 2023. 11. 07. CMC 기반의 EMR시스템에서 접근하는 Operation의 대하여 핸들링한다.
  */
-
 public class resourceTransforOperationProvider extends BaseJpaProvider {
 
 	private static final Logger ourLog = LoggerFactory.getLogger(resourceTransforOperationProvider.class);
@@ -318,6 +325,30 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 
 				loggingInDebugMode("MedicationRequest : " + cmcDataTransforService.retResourceToString(medicationReqeust));
 
+			}else if("observation".equals(entry.getKey())){
+				ourLog.info("-------------------------- observation");
+				Map<String, String> identifierSet = new HashMap<>();
+				identifierSet.put("inst_cd", rowMap.get("inst_cd"));
+				identifierSet.put("pid", rowMap.get("pid"));
+				identifierSet.put("ord_dd", rowMap.get("ord_dd"));
+				identifierSet.put("ord_dept_cd", rowMap.get("ord_dept_cd"));
+				identifierSet.put("ord_dr_id", rowMap.get("ord_dr_id"));
+				identifierSet.put("cret_no", rowMap.get("cret_no"));
+
+				ReferenceDataSet ds = referenceDataMatcher.searchMapperWithMapType(identifierSet);
+				if (ds == null) {
+					if (transformDataOperationConfigProperties.isTransforIgnoreHasNoEncounter()) {
+						loggingInDebugMode(" > 해당 리소스의 Encounter 를 찾을 수 없어 해당 데이터는 생성이 생략되었습니다. " + identifierSet);
+						continue;
+					} else {
+						throw new IllegalArgumentException(" > 해당 리소스의 Encounter를 찾을 수 없어 오류가 발생하였습니다.");
+					}
+				}
+
+				String organizationId = ds.getReferenceList().get("Organization").getReference();
+				String patientId = ds.getReferenceList().get("Patient").getReference();
+				String encounterId = ds.getReferenceList().get("Encounter").getReference();
+
 			}else if("observation-exam".equals(entry.getKey())){
 				ourLog.info("-------------------------- observation-exam");
 				Map<String, String> identifierSet = new HashMap<>();
@@ -327,6 +358,7 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 				identifierSet.put("ord_dept_cd", rowMap.get("ord_dept_cd"));
 				identifierSet.put("ord_type_cd", rowMap.get("io_flag"));
 				identifierSet.put("ord_dr_id", rowMap.get("ord_dr_id"));
+				identifierSet.put("cret_no", rowMap.get("cret_no"));
 				ReferenceDataSet ds = referenceDataMatcher.searchMapperWithMapType(identifierSet);
 				if (ds == null) {
 					if (transformDataOperationConfigProperties.isTransforIgnoreHasNoEncounter()) {
@@ -351,6 +383,67 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 				ourLog.info("-------------------------- Medication");
 				// medication, medicationRequest 를 분개 가능한 경우 활용
 
+			}else if("diagnosticreport-pathology".equals(entry.getKey())){
+				ourLog.info("-------------------------- diagnosticreport-pathology");
+				// 병리
+				Map<String, String> identifierSet = new HashMap<>();
+				identifierSet.put("inst_cd", rowMap.get("inst_cd"));
+				identifierSet.put("pid", rowMap.get("pid"));
+				identifierSet.put("ord_dd", rowMap.get("ord_dd"));
+				identifierSet.put("ord_dept_cd", rowMap.get("ord_dept_cd"));
+				identifierSet.put("ord_dr_id", rowMap.get("ord_dr_id"));
+				identifierSet.put("cret_no", rowMap.get("cret_no"));
+				identifierSet.put("ord_type_cd", rowMap.get("prcp_genr_flag"));
+				ReferenceDataSet ds = referenceDataMatcher.searchMapperWithMapType(identifierSet);
+				if (ds == null) {
+					if (transformDataOperationConfigProperties.isTransforIgnoreHasNoEncounter()) {
+						loggingInDebugMode(" > 해당 리소스의 Encounter 를 찾을 수 없어 해당 데이터는 생성이 생략되었습니다. " + identifierSet);
+						continue;
+					} else {
+						throw new IllegalArgumentException(" > 해당 리소스의 Encounter를 찾을 수 없어 오류가 발생하였습니다.");
+					}
+				}
+
+				String organizationId = ds.getReferenceList().get("Organization").getReference();
+				String patientId = ds.getReferenceList().get("Patient").getReference();
+				String encounterId = ds.getReferenceList().get("Encounter").getReference();
+
+				DiagnosticReport diagnosticReport = cmcDataTransforService.transformPlatDataToFhirDiagnosticReportPathology(organizationId, patientId, encounterId, rowMap);
+				IFhirResourceDao resourceProviderForServiceRequest = myDaoRegistry.getResourceDao("DiagnosticReport");
+				resourceProviderForServiceRequest.update(diagnosticReport);
+
+				loggingInDebugMode("diagnosticReport-pathology Request : " + cmcDataTransforService.retResourceToString(diagnosticReport));
+
+			}else if("diagnosticreport-radiology".equals(entry.getKey())){
+				ourLog.info("-------------------------- diagnosticreport-pathology");
+				// 병리
+				Map<String, String> identifierSet = new HashMap<>();
+				identifierSet.put("inst_cd", rowMap.get("inst_cd"));
+				identifierSet.put("pid", rowMap.get("pid"));
+				identifierSet.put("ord_dd", rowMap.get("ord_dd"));
+				identifierSet.put("ord_dept_cd", rowMap.get("ord_dept_cd"));
+				identifierSet.put("ord_dr_id", rowMap.get("ord_dr_id"));
+				identifierSet.put("cret_no", rowMap.get("cret_no"));
+				identifierSet.put("ord_type_cd", rowMap.get("io_flag"));
+				ReferenceDataSet ds = referenceDataMatcher.searchMapperWithMapType(identifierSet);
+				if (ds == null) {
+					if (transformDataOperationConfigProperties.isTransforIgnoreHasNoEncounter()) {
+						loggingInDebugMode(" > 해당 리소스의 Encounter 를 찾을 수 없어 해당 데이터는 생성이 생략되었습니다. " + identifierSet);
+						continue;
+					} else {
+						throw new IllegalArgumentException(" > 해당 리소스의 Encounter를 찾을 수 없어 오류가 발생하였습니다.");
+					}
+				}
+
+				String organizationId = ds.getReferenceList().get("Organization").getReference();
+				String patientId = ds.getReferenceList().get("Patient").getReference();
+				String encounterId = ds.getReferenceList().get("Encounter").getReference();
+
+				DiagnosticReport diagnosticReport = cmcDataTransforService.transformPlatDataToFhirDiagnosticReportRadiology(organizationId, patientId, encounterId, rowMap);
+				IFhirResourceDao resourceProviderForServiceRequest = myDaoRegistry.getResourceDao("DiagnosticReport");
+				resourceProviderForServiceRequest.update(diagnosticReport);
+
+				loggingInDebugMode("diagnosticReport-radiology Request : " + cmcDataTransforService.retResourceToString(diagnosticReport));
 
 			}else if("procedure".equals(entry.getKey())){
 				ourLog.info("-------------------------- Procedure");
@@ -415,6 +508,54 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 			}else{
 				loggingInDebugMode(" >>>>> UN Develops Resource : " + entry.getKey());
 			}
+		}
+	}
+
+	// Mapping 의 값이 Matcher 에 존재하지 않으면, FHIR 에서 해당 Encounter 에서 데이터를 가져와서 Matcher에 등록시킨다.
+	private void registEncounterReferenceInFHIRResource(String organizationId, LinkedHashMap<String, String> encounterKey){
+		// 1. 최소특정조건으로 Encounter 의 조회
+		String uniqueId = "ENC."
+			+ organizationId + "."
+			+ encounterKey.get("ord_dept_cd") + "."
+			+ encounterKey.get("ord_dd") + "."
+			+ encounterKey.get("cret_no") + "."
+			+ encounterKey.get("ord_dr_id");
+
+		IFhirResourceDao resourceProviderForEncounter = myDaoRegistry.getResourceDao("Encounter");
+		IQueryParameterType stringParam = new StringParam(uniqueId);
+		SearchParameterMap searchParameterMapForStructureDef = new SearchParameterMap().add(StructureDefinition.SP_RES_ID, stringParam);
+		searchParameterMapForStructureDef.setSearchTotalMode(SearchTotalModeEnum.ESTIMATED);
+		searchParameterMapForStructureDef.setCount(1000);
+
+		IBundleProvider results = resourceProviderForEncounter.search(searchParameterMapForStructureDef);
+		// 2. 해당 필수키와 유사한 Encounter 가 있는 경우
+		// 레퍼런스 맵에 등록한다.
+		// 1) 맵에 등록할 IdentifierSet
+		LinkedHashMap<String, String> identifierKeySet = new LinkedHashMap<>();
+		for(IBaseResource bs : results.getAllResources()){
+			Encounter encounter = (Encounter) bs;
+			identifierKeySet = encounterKey;
+
+			String ordType = "";
+			if("AMB".equals(encounter.getClass_().getCode())){
+				ordType = "O";
+			}else if("EMER".equals(encounter.getClass_().getCode())){
+				ordType = "E";
+			}else if("IMP".equals(encounter.getClass_().getCode())){
+				ordType = "I";
+			}else{
+				throw new IllegalArgumentException(" 해당 대상자의 FHIR 의 적재된 Encounter " + encounter.getId() + " 의 Class값이 기능상 정의되지 않은 값이 조회되었습니다.");
+			}
+			identifierKeySet.put("ord_type_cd", ordType);
+
+			// 2) 맵에 등록할 Encounter 연관 Identifier Reference
+			Map<String, Reference> referenceMap = new HashMap<>();
+			referenceMap.put("Encounter", new Reference(encounter.getIdPart()));
+			referenceMap.put("Patient", new Reference(encounter.getSubject().getReference().replace("Patient/", "")));
+			referenceMap.put("PractitionerRole", new Reference(encounter.getParticipant().get(0).getIndividual().getReference().replace("PractitionerRole/", "")));
+			referenceMap.put("Organization", new Reference(encounter.getServiceProvider().getReference().replace("Organization/", "")));
+
+			referenceDataMatcher.inputMappingData(identifierKeySet, referenceMap);
 		}
 	}
 
@@ -502,5 +643,7 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 			ourLog.info(arg);
 		}
 	}
+
+
 
 }
