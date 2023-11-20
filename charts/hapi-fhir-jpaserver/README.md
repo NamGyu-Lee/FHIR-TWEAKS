@@ -48,7 +48,7 @@ helm install hapi-fhir-jpaserver hapifhir/hapi-fhir-jpaserver
 | metrics.serviceMonitor.additionalLabels | object | `{}` | additional labels to apply to the ServiceMonitor object, e.g. `release: prometheus` |
 | metrics.serviceMonitor.enabled | bool | `false` | if enabled, creates a ServiceMonitor instance for Prometheus Operator-based monitoring |
 | nameOverride | string | `""` | override the chart name |
-| nodeSelector | object | `{}` | node selector for the pod |
+| nodeSelector | object | `{}` | ruleNode selector for the pod |
 | podAnnotations | object | `{}` | annotations applied to the server pod |
 | podDisruptionBudget.enabled | bool | `false` | Enable PodDisruptionBudget for the server pods. uses policy/v1/PodDisruptionBudget thus requiring k8s 1.21+ |
 | podDisruptionBudget.maxUnavailable | string | `""` | maximum unavailable instances |

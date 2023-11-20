@@ -416,6 +416,18 @@ public class CmcDataTransforServiceImpl implements CmcDataTransforService {
 		meta.setProfile(createProfiles("http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-condition-chief-complaint", "http://connectdtx.kr/fhir/StructureDefinition/connectdtx-condition"));
 		condition.setMeta(meta);
 
+		// category
+		List<CodeableConcept> categoryConcepts = new ArrayList<>();
+		CodeableConcept categoryConcept = new CodeableConcept();
+		List<Coding> categoryCodingList = new ArrayList<>();
+		Coding cod = new Coding();
+		cod.setSystem("http://www.hl7korea.or.kr/fhir/krcore/CodeSystem/krcore-condition-category-types");
+		cod.setCode("주호소");
+		categoryCodingList.add(cod);
+		categoryConcept.setCoding(categoryCodingList);
+		categoryConcepts.add(categoryConcept);
+		condition.setCategory(categoryConcepts);
+
 		// coding
 		// KCD 마지막 자릿수가 .으로 끝날때 소거
 		String diagCd = requestMap.get("diag_cd");
@@ -551,17 +563,28 @@ public class CmcDataTransforServiceImpl implements CmcDataTransforService {
 		// status
 		medication.setStatus(Medication.MedicationStatus.ACTIVE);
 
+		// code
+		CodeableConcept codeableConcept = new CodeableConcept();
+		List<Coding> codingList = new ArrayList<>();
+		Coding coding = new Coding();
+		coding.setSystem("http://www.hl7korea.or.kr/CodeSystem/hira-edi-medication");
+		coding.setCode(requestMap.get("edi_cd"));
+		coding.setDisplay(requestMap.get("edi_nm"));
+		codingList.add(coding);
+		codeableConcept.setCoding(codingList);
+		medication.setCode(codeableConcept);
+
 		// ingredient
 		List<Medication.MedicationIngredientComponent> medicationIngredientComponentList = new ArrayList<>();
 		Medication.MedicationIngredientComponent medicationIngredientComponent = new Medication.MedicationIngredientComponent();
-		CodeableConcept concept = new CodeableConcept();
-		List<Coding> codingList = new ArrayList<>();
-		Coding coding = new Coding();
-		coding.setSystem("http://www.whocc.no/atc");
-		coding.setCode(requestMap.get("edi_cd"));
-		codingList.add(coding);
-		concept.setCoding(codingList);
-		medicationIngredientComponent.setItem(concept);
+		CodeableConcept conceptIngredient = new CodeableConcept();
+		List<Coding> codingIngredientList = new ArrayList<>();
+		Coding codingIngredient = new Coding();
+		codingIngredient.setSystem("http://www.whocc.no/atc");
+		codingIngredient.setCode(requestMap.get("edi_cd"));
+		codingIngredientList.add(codingIngredient);
+		conceptIngredient.setCoding(codingIngredientList);
+		medicationIngredientComponent.setItem(conceptIngredient);
 		medicationIngredientComponentList.add(medicationIngredientComponent);
 		medication.setIngredient(medicationIngredientComponentList);
 
@@ -637,9 +660,9 @@ public class CmcDataTransforServiceImpl implements CmcDataTransforService {
 		// referenceRange
 		if("valueQuantity".equals(requestMap.get("chk_flag"))) {
 			Observation.ObservationReferenceRangeComponent component = new Observation.ObservationReferenceRangeComponent();
-			String rfvlLower = requestMap.get("rslt_val");
-			String rfvlUpper = requestMap.get("rslt_val");
-			if (rfvlLower != null && rfvlUpper != null) {
+			String rfvlLower = requestMap.get("rfvl_lwlm_val");
+			String rfvlUpper = requestMap.get("rfvl_uplm_val");
+			if (rfvlLower != null && rfvlUpper != null && !"null".equals(rfvlLower) && !"null".equals(rfvlUpper)) {
 				Quantity quantityLow = new Quantity(Double.parseDouble(rfvlLower));
 				quantityLow.setUnit(requestMap.get("rslt_val_unit_cd"));
 				component.setLow(quantityLow);
@@ -647,11 +670,11 @@ public class CmcDataTransforServiceImpl implements CmcDataTransforService {
 				Quantity quantityUpper = new Quantity(Double.parseDouble(rfvlUpper));
 				quantityUpper.setUnit(requestMap.get("rslt_val_unit_cd"));
 				component.setLow(quantityUpper);
-			} else if (rfvlLower == null && rfvlUpper != null) {
+			} else if (rfvlLower == null && rfvlUpper != null && "null".equals(rfvlLower) && !"null".equals(rfvlUpper)) {
 				Quantity quantityUpper = new Quantity(Double.parseDouble(rfvlUpper));
 				quantityUpper.setUnit(requestMap.get("rslt_val_unit_cd"));
 				component.setLow(quantityUpper);
-			} else if (rfvlUpper == null && rfvlLower != null) {
+			} else if (rfvlUpper == null && rfvlLower != null && !"null".equals(rfvlLower) && "null".equals(rfvlUpper)) {
 				Quantity quantityLow = new Quantity(Double.parseDouble(rfvlLower));
 				quantityLow.setUnit(requestMap.get("rslt_val_unit_cd"));
 				component.setLow(quantityLow);
@@ -777,11 +800,14 @@ public class CmcDataTransforServiceImpl implements CmcDataTransforService {
 		diagnosticReport.setCode(concept);
 
 		// effective DateTime
+		/*
 		try {
-			diagnosticReport.setEffective(new DateType(SDF_YMD.parse(requestMap.get("EXEC_DT"))));
+			diagnosticReport.setEffective(new DateType(SDF_YMD.parse(requestMap.get("exec_dt"))));
 		}catch(ParseException e){
 			throw new IllegalArgumentException("DiagnosticReport 형성 과정에서 오류가 발생하였습니다. 생성일자가 YYYYMMDD 형식이 아닙니다.");
 		}
+		*/
+
 		// conclusion
 		diagnosticReport.setConclusion(requestMap.get("concl_val"));
 

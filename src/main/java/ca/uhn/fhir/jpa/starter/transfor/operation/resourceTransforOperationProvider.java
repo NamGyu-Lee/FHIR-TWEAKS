@@ -303,7 +303,6 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 
 				String organizationId = ds.getReferenceList().get("Organization").getReference();
 				String patientId = ds.getReferenceList().get("Patient").getReference();
-				String practitionerId = ds.getReferenceList().get("Practitioner").getReference();
 				String practitionerRoleId = ds.getReferenceList().get("PractitionerRole").getReference();
 				String encounterId = ds.getReferenceList().get("Encounter").getReference();
 
@@ -348,6 +347,12 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 				String organizationId = ds.getReferenceList().get("Organization").getReference();
 				String patientId = ds.getReferenceList().get("Patient").getReference();
 				String encounterId = ds.getReferenceList().get("Encounter").getReference();
+
+				Observation observation = cmcDataTransforService.transformPlatDataToFhirObservation(organizationId, patientId, encounterId, rowMap);
+				IFhirResourceDao resourceProviderForServiceRequest = myDaoRegistry.getResourceDao("Observation");
+				resourceProviderForServiceRequest.update(observation);
+
+				loggingInDebugMode("Observation Request : " + cmcDataTransforService.retResourceToString(observation));
 
 			}else if("observation-exam".equals(entry.getKey())){
 				ourLog.info("-------------------------- observation-exam");
@@ -415,9 +420,9 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 				loggingInDebugMode("diagnosticReport-pathology Request : " + cmcDataTransforService.retResourceToString(diagnosticReport));
 
 			}else if("diagnosticreport-radiology".equals(entry.getKey())){
-				ourLog.info("-------------------------- diagnosticreport-pathology");
+				ourLog.info("-------------------------- diagnosticreport-radiology");
 				// 병리
-				Map<String, String> identifierSet = new HashMap<>();
+				LinkedHashMap<String, String> identifierSet = new LinkedHashMap<>();
 				identifierSet.put("inst_cd", rowMap.get("inst_cd"));
 				identifierSet.put("pid", rowMap.get("pid"));
 				identifierSet.put("ord_dd", rowMap.get("ord_dd"));
@@ -495,7 +500,6 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 
 				String organizationId = ds.getReferenceList().get("Organization").getReference();
 				String patientId = ds.getReferenceList().get("Patient").getReference();
-				String practitionerId = ds.getReferenceList().get("Practitioner").getReference();
 				String practitionerRoleId = ds.getReferenceList().get("PractitionerRole").getReference();
 				String encounterId = ds.getReferenceList().get("Encounter").getReference();
 
@@ -513,6 +517,8 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 
 	// Mapping 의 값이 Matcher 에 존재하지 않으면, FHIR 에서 해당 Encounter 에서 데이터를 가져와서 Matcher에 등록시킨다.
 	private void registEncounterReferenceInFHIRResource(String organizationId, LinkedHashMap<String, String> encounterKey){
+		loggingInDebugMode(" registEncounterReferenceInFHIRResource Start ... ");
+
 		// 1. 최소특정조건으로 Encounter 의 조회
 		String uniqueId = "ENC."
 			+ organizationId + "."
@@ -528,6 +534,8 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 		searchParameterMapForStructureDef.setCount(1000);
 
 		IBundleProvider results = resourceProviderForEncounter.search(searchParameterMapForStructureDef);
+		loggingInDebugMode(" > Encounter Search Result ... : " + results.size());
+
 		// 2. 해당 필수키와 유사한 Encounter 가 있는 경우
 		// 레퍼런스 맵에 등록한다.
 		// 1) 맵에 등록할 IdentifierSet
@@ -626,6 +634,9 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 	}
 
 	private static String convertObjectToString(Object value) {
+		if (value == null) {
+			return "";
+		}
 		if (value instanceof Number) {
 			Number number = (Number) value;
 			// 정수와 실수를 구분
@@ -643,7 +654,5 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 			ourLog.info(arg);
 		}
 	}
-
-
 
 }
