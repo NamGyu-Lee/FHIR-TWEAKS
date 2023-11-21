@@ -43,7 +43,7 @@ public class RuleNode {
 			sourceReferenceNm = RuleUtils.getSourceReferenceName(rule);
 			targetElementNm = RuleUtils.getTargetElementName(rule);
 		}else{
-			transactionType = TransactionType.CREATE;
+			transactionType = RuleUtils.classifyTransactionType(rule);
 			targetElementNm = rule;
 		}
 		this.level = level;

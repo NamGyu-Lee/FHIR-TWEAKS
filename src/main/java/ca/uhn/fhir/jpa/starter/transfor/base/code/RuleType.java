@@ -16,4 +16,8 @@ public enum RuleType {
 	public boolean matches(String line) {
 		return this.pattern.matcher(line).matches();
 	}
+
+	public Pattern getPattern(){
+		return pattern;
+	}
 }
