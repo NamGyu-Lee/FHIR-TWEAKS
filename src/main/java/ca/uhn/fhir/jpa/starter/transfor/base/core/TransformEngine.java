@@ -84,7 +84,7 @@ public class TransformEngine{
 			}
 
 			for (String retKey : retTargetList.keySet()) {
-				System.out.println(ruleNode.getRule() + " HAS " + "INNER :: " + retKey + "    -> " + retTargetList.get(retKey));
+				ourLog.info(ruleNode.getRule() + " HAS " + "INNER :: " + retKey + "    -> " + retTargetList.get(retKey));
 			}
 
 			// 2.2 병합
@@ -92,15 +92,14 @@ public class TransformEngine{
 			JSONObject retTarget = new JSONObject();
 			boolean canBeMerged = false;
 			if(ruleNode.getRuleType().equals(RuleType.CREATE_ARRAY)){
-
-				System.out.println("\n--------------------------------=ARRAY=--------------------------");
+				ourLog.info("\n--------------------------------=ARRAY=--------------------------");
 
 				// 2.2.1. array 인 경우
 				JSONArray array = new JSONArray();
 				JSONObject obj = new JSONObject();
 				List<List<JSONObject>> sameLevelGrapObject = new LinkedList<>();
 				for (String retKey : retTargetList.keySet()){
-					System.out.println(retKey + " /  array          -> " + retTargetList.get(retKey));
+					ourLog.info(retKey + " /  array          -> " + retTargetList.get(retKey));
 					if(retKey.matches(TransactionType.CREATE_SINGLESTRING.getPattern().pattern())){
 						// [{'http://abc':'http://abc'}] -> ['http://abc']
 						array.put(retTargetList.get(retKey).get(0).get(retKey));
@@ -113,6 +112,7 @@ public class TransformEngine{
 								jsonObjectList.add(eachResources);
 							}
 							sameLevelGrapObject.add(jsonObjectList);
+							ourLog.info(" USING CREATE_ARRAY ....! : " + jsonObjectList);
 							canBeMerged = true;
 						}else{
 							// {"a":"1"},{"b":"2"} -> {"a":"1", "b":"2"}
@@ -154,12 +154,12 @@ public class TransformEngine{
 				activateTransNode.setTarget(retTarget);
 
 			}else {
-				System.out.println("\n--------------------------------=SINGLE=--------------------------");
+				ourLog.info("\n--------------------------------=SINGLE=--------------------------");
 
 				// 2.2.2. 단일패턴
 				JSONObject mergeJsonObj = new JSONObject();
 				for (String retKey : retTargetList.keySet()) {
-					System.out.println(" > " + retKey + " then single -> " + retTargetList.get(retKey));
+					ourLog.info(" > " + retKey + " then single -> " + retTargetList.get(retKey));
 					// array 의 선언을 위해 구현된 룰은 동작시키지않음.
 					if(retKey.contains("(") && retKey.contains(")")){
 						mergeJsonObj = retTargetList.get(retKey).get(0);
@@ -169,11 +169,11 @@ public class TransformEngine{
 				}
 
 				retTarget = mergeJsonObj;
-				System.out.println(" > retTarget : " + retTarget);
+				ourLog.info(" > retTarget : " + retTarget);
 				// 3. 단일형 반영
 
 				target.put(ruleNode.getTargetElementNm(), retTarget);
-				System.out.println(" > target : " + target);
+				ourLog.info(" > target : " + target);
 
 				activateTransNode.setTarget(target);
 			}
@@ -188,7 +188,10 @@ public class TransformEngine{
 
 		// 1. 트리 생성
 		List<RuleNode> ruleNodeList = MapperUtils.createTree(script);
+
+		// 2. 변환 수행
 		JSONObject targetObject = new JSONObject();
+		Set<String> namedKeySet = new LinkedHashSet<>();
 		try {
 			JSONObject retJsonObject = new JSONObject();
 			JSONObject sourceObj = source;
@@ -200,10 +203,46 @@ public class TransformEngine{
 				ActivateTransNode ret = recursiveActTransNode(activateTransNode);
 				//System.out.println(" ▶ Active Result Per Rules : " + ret.getTarget().toString());
 
-				RuleUtils.mergeJsonObjects(retJsonObject, ret.getTarget());
+				// mergeRule
+				// 1. 같은 룰이 두개 이상 들어오면 Array처리하기
+				if(retJsonObject.length() != 0){
+					// 추가하려는 JSON 의 최상위 노드 조회
+					String inputDataHeaderKey = (String)ret.getTarget().keys().next();
+					ourLog.debug( " Already Contain Key Set ::: " + namedKeySet.toString());
+					ourLog.debug( " Search the key >>>> " + inputDataHeaderKey);
+					if(namedKeySet.contains(inputDataHeaderKey)){
+						// 이미 수행한 적이 있는 Rule이 반복된다면 배열화
+						ourLog.debug( " >>>> " + inputDataHeaderKey + " is Already Contained Then ");
+						Object jsonObject = retJsonObject.get(inputDataHeaderKey);
+						JSONArray jsonArray = new JSONArray();
+						if(jsonObject.getClass().equals(JSONArray.class)){
+							// 이미 배열화 된 경우
+							ourLog.debug( " >>>> " + inputDataHeaderKey + " is Already Arrayed");
+							jsonArray = (JSONArray)jsonObject;
+							jsonArray.put(ret.getTarget().get(inputDataHeaderKey));
+						}else{
+							// 최초 배열화
+							ourLog.debug( " >>>> " + inputDataHeaderKey + " is to be Array");
+							jsonArray.put(jsonObject);
+							jsonArray.put(ret.getTarget().get(inputDataHeaderKey));
+						}
+
+						JSONObject retObject = new JSONObject();
+						retObject.put(inputDataHeaderKey, jsonArray);
+						RuleUtils.mergeJsonObjects(retJsonObject, retObject);
+					}else{
+						ourLog.debug(" - can not found the key " + inputDataHeaderKey + " then insert this.");
+						namedKeySet.add(inputDataHeaderKey);
+						RuleUtils.mergeJsonObjects(retJsonObject, ret.getTarget());
+					}
+				}else{
+					String inputDataHeaderKey = (String)ret.getTarget().keys().next();
+					namedKeySet.add(inputDataHeaderKey);
+					RuleUtils.mergeJsonObjects(retJsonObject, ret.getTarget());
+				}
 			}
 
-			System.out.println(retJsonObject);
+			ourLog.debug(retJsonObject.toString());
 
 			FhirContext context = new FhirContext(FhirVersionEnum.R4);
 			IBaseResource resource = context.newJsonParser().parseResource(retJsonObject.toString());

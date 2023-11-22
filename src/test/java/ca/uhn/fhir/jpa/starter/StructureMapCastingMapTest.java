@@ -22,8 +22,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
 
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 /**
  *  Map 을 활용하여 테스트
@@ -209,7 +208,7 @@ public class StructureMapCastingMapTest {
 		" * (profile).profile\n" +
 		"  * 'http://connectdtx.kr/fhir/StructureDefinition/connectdtx-patient'\n" +
 		"  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-patient'\n" +
-		"* (identifier).identifier\n" +
+		"* identifier\n" +
 		" * type\n" +
 		"  * (coding).coding\n" +
 		"   * system='http://terminology.hl7.org/CodeSystem/v2-0203-1'\n" +
@@ -334,9 +333,22 @@ public class StructureMapCastingMapTest {
 		"   * diver='15'\n"
 		;
 
+	String map9 =
+		"* identifier\n" +
+		" * a='1'\n" +
+		"  * b='1'\n" +
+		"  * c='1'\n" +
+		" * d='1'\n" +
+		"* identifier\n" +
+		" * a='2'\n" +
+		" * b='ab'\n" +
+		" * c='de'\n" +
+		"* identifier\n" +
+		" * a='3'\n";
+
 	@Test
-	void 룰_배열문제_해결하기(){
-		String script = map8;
+	void 룰_중복시_병합시키기(){
+		String script = map9;
 		List<RuleNode> ruleNodeList = MapperUtils.createTree(script);
 
 		for(RuleNode eachRuleNode : ruleNodeList){
@@ -344,10 +356,8 @@ public class StructureMapCastingMapTest {
 			MapperUtils.printRuleAndRuleTypeInNodeTree(eachRuleNode);
 		}
 
-		System.out.println("---------------------------------");
-
-
 		JSONObject targetObject = new JSONObject();
+		Set<String> namedKeySet = new LinkedHashSet<>();
 		try {
 			JSONObject retJsonObject = new JSONObject();
 			JSONObject sourceObj = new JSONObject(sourceMap);
@@ -358,8 +368,43 @@ public class StructureMapCastingMapTest {
 				activateTransNode.setTarget(targetObject);
 				ActivateTransNode ret = transformEngine.recursiveActTransNode(activateTransNode);
 				System.out.println(" ▶ Active Result Per Rules : " + ret.getTarget().toString());
+				System.out.println("---------------------------------");
 
-				RuleUtils.mergeJsonObjects(retJsonObject, ret.getTarget());
+				if(retJsonObject.length() != 0){
+					// 추가하려는 JSON 의 최상위 노드 조회
+					String inputDataHeaderKey = (String)ret.getTarget().keys().next();
+					System.out.println( " Already Contain Key Set ::: " + namedKeySet.toString());
+					System.out.println( " Search the key >>>> " + inputDataHeaderKey);
+					if(namedKeySet.contains(inputDataHeaderKey)){
+						// 이미 수행한 적이 있는 Rule이 반복된다면 배열화
+						System.out.println( " >>>> " + inputDataHeaderKey + " is Already Contained Then ");
+						Object jsonObject = retJsonObject.get(inputDataHeaderKey);
+						JSONArray jsonArray = new JSONArray();
+						if(jsonObject.getClass().equals(JSONArray.class)){
+							// 이미 배열화 된 경우
+							System.out.println( " >>>> " + inputDataHeaderKey + " is Already Arrayed");
+							jsonArray = (JSONArray)jsonObject;
+							jsonArray.put(ret.getTarget().get(inputDataHeaderKey));
+						}else{
+							// 최초 배열화
+							System.out.println( " >>>> " + inputDataHeaderKey + " is to be Array");
+							jsonArray.put(jsonObject);
+							jsonArray.put(ret.getTarget().get(inputDataHeaderKey));
+						}
+
+						JSONObject retObject = new JSONObject();
+						retObject.put(inputDataHeaderKey, jsonArray);
+						RuleUtils.mergeJsonObjects(retJsonObject, retObject);
+					}else{
+						System.out.println("can not found the key " + inputDataHeaderKey + " then insert this.");
+						namedKeySet.add(inputDataHeaderKey);
+						RuleUtils.mergeJsonObjects(retJsonObject, ret.getTarget());
+					}
+				}else{
+					String inputDataHeaderKey = (String)ret.getTarget().keys().next();
+					namedKeySet.add(inputDataHeaderKey);
+					RuleUtils.mergeJsonObjects(retJsonObject, ret.getTarget());
+				}
 			}
 
 			System.out.println("---------------------------------");
@@ -385,6 +430,4 @@ public class StructureMapCastingMapTest {
 			System.out.print(data + " ");	// output : 100 200 300
 		}
 	}
-
-
 }
