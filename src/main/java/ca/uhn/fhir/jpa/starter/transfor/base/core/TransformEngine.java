@@ -15,10 +15,10 @@ import org.hl7.fhir.r4.model.Patient;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /** 2023. 11. 20.
  * 특정 언어구조를 활용하여 데이터를 치환하는 로직을 구현한다.
@@ -70,7 +70,7 @@ public class TransformEngine{
 		}else{
 			// recursive
 			// target = target(seperation + seperation)
-			Map<String, JSONObject> retTargetList = new LinkedHashMap<>();
+			MultiValueMap<String, JSONObject> retTargetList = new LinkedMultiValueMap<>();
 			for(RuleNode childNode : ruleNode.getChildren()){
 				//System.out.println(" -- Parent Rule : " + ruleNode.getRule());
 				//System.out.println(" -- Child Rule : " + childNode.getRule());
@@ -80,34 +80,73 @@ public class TransformEngine{
 				subRuleNode.setSource(source);
 				subRuleNode.setTarget(null); // 최종결과시에만 활용
 				ActivateTransNode ret = recursiveActTransNode(subRuleNode);
+				retTargetList.add(childNode.getTargetElementNm(), ret.getTarget());
+			}
 
-				retTargetList.put(childNode.getTargetElementNm(), ret.getTarget());
+			for (String retKey : retTargetList.keySet()) {
+				System.out.println(ruleNode.getRule() + " HAS " + "INNER :: " + retKey + "    -> " + retTargetList.get(retKey));
 			}
 
 			// 2.2 병합
 			// 2023. 11. 20. Array의 대한 패턴 검증 완료.
 			JSONObject retTarget = new JSONObject();
-			boolean canbemerged = false;
+			boolean canBeMerged = false;
 			if(ruleNode.getRuleType().equals(RuleType.CREATE_ARRAY)){
+
+				System.out.println("\n--------------------------------=ARRAY=--------------------------");
+
 				// 2.2.1. array 인 경우
 				JSONArray array = new JSONArray();
 				JSONObject obj = new JSONObject();
-				for (String retKey : retTargetList.keySet()) {
+				List<List<JSONObject>> sameLevelGrapObject = new LinkedList<>();
+				for (String retKey : retTargetList.keySet()){
 					System.out.println(retKey + " /  array          -> " + retTargetList.get(retKey));
 					if(retKey.matches(TransactionType.CREATE_SINGLESTRING.getPattern().pattern())){
 						// [{'http://abc':'http://abc'}] -> ['http://abc']
-						array.put(retTargetList.get(retKey).get(retKey));
-						canbemerged = true;
+						array.put(retTargetList.get(retKey).get(0).get(retKey));
+						canBeMerged = true;
 					}else{
-						// {"a":"1"},{"b":"2"} -> {"a":"1", "b":"2"}
-						RuleUtils.mergeJsonObjects(obj, retTargetList.get(retKey));
-						canbemerged = false;
+						// [{"a":"1", "b":"2"}, {"a":"1", "b":"2"}]
+						if(retTargetList.get(retKey).size()>=2 && ruleNode.getRuleType().equals(RuleType.CREATE_ARRAY)){
+							List<JSONObject> jsonObjectList = new LinkedList<>();
+							for(JSONObject eachResources : retTargetList.get(retKey)){
+								jsonObjectList.add(eachResources);
+							}
+							sameLevelGrapObject.add(jsonObjectList);
+							canBeMerged = true;
+						}else{
+							// {"a":"1"},{"b":"2"} -> {"a":"1", "b":"2"}
+							RuleUtils.mergeJsonObjects(obj, retTargetList.get(retKey).get(0));
+							canBeMerged = false;
+						}
 					}
+				}
+				
+				// [{"a":"1", "b":"2"}, {"a":"1", "b":"2"}] 의 병합
+				if(sameLevelGrapObject.size() > 2){
+					int maxSize = 0;
+					for (List<JSONObject> innerList : sameLevelGrapObject) {
+						if (innerList.size() > maxSize) {
+							maxSize = innerList.size();
+						}
+					}
+
+					JSONArray mergeArray = new JSONArray();
+					for (int i = 0; i < maxSize; i++) {
+						JSONObject mergeObject = new JSONObject();
+						for (List<JSONObject> i1 : sameLevelGrapObject) {
+							if(i1.size() > i){
+								RuleUtils.mergeJsonObjects(mergeObject, i1.get(i));
+							}
+						}
+						mergeArray.put(mergeObject);
+					}
+					array = mergeArray;
 				}
 
 				// 3. 배열형 반영
-				if(canbemerged){
-					retTarget.put(RuleUtils.getArrayTypeObjectNameTarget(ruleNode.getRule()), array);
+				if(canBeMerged){
+						retTarget.put(RuleUtils.getArrayTypeObjectNameTarget(ruleNode.getRule()), array);
 				}else{
 					array.put(obj);
 					retTarget.put(RuleUtils.getArrayTypeObjectNameTarget(ruleNode.getRule()), array);
@@ -115,21 +154,24 @@ public class TransformEngine{
 				activateTransNode.setTarget(retTarget);
 
 			}else {
+				System.out.println("\n--------------------------------=SINGLE=--------------------------");
+
 				// 2.2.2. 단일패턴
 				JSONObject mergeJsonObj = new JSONObject();
 				for (String retKey : retTargetList.keySet()) {
 					System.out.println(" > " + retKey + " then single -> " + retTargetList.get(retKey));
 					// array 의 선언을 위해 구현된 룰은 동작시키지않음.
 					if(retKey.contains("(") && retKey.contains(")")){
-						mergeJsonObj = retTargetList.get(retKey);
+						mergeJsonObj = retTargetList.get(retKey).get(0);
 					}else{
-						RuleUtils.mergeJsonObjects(mergeJsonObj, retTargetList.get(retKey));
+						RuleUtils.mergeJsonObjects(mergeJsonObj, retTargetList.get(retKey).get(0));
 					}
 				}
 
 				retTarget = mergeJsonObj;
 				System.out.println(" > retTarget : " + retTarget);
 				// 3. 단일형 반영
+
 				target.put(ruleNode.getTargetElementNm(), retTarget);
 				System.out.println(" > target : " + target);
 

@@ -18,6 +18,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 
 
 import java.util.LinkedList;
@@ -210,18 +212,18 @@ public class StructureMapCastingMapTest {
 		"* (identifier).identifier\n" +
 		" * type\n" +
 		"  * (coding).coding\n" +
-		"   * system='http://terminology.hl7.org/CodeSystem/v2-0203'\n" +
+		"   * system='http://terminology.hl7.org/CodeSystem/v2-0203-1'\n" +
 		"   * code=code\n" +
 		" * system='http://www.hl7korea.or.kr/Identifier/hira-krnpi'\n" +
 		" * value=value\n" +
-		// test
+		" * display=value\n" +
 		" * type\n" +
 		"  * (coding).coding\n" +
-		"   * system='http://terminology.hl7.org/CodeSystem/v2-0203'\n" +
+		"   * system='http://terminology.hl7.org/CodeSystem/v2-0203-2'\n" +
 		"   * code=code\n" +
 		" * system='http://www.hl7korea.or.kr/Identifier/hira-krnpi'\n" +
 		" * value=value\n" +
-		//
+		" * display=''\n" +
 		"* active='true'\n" +
 		"* (name).name\n" +
 		" * text=hng_nm\n"+
@@ -300,7 +302,7 @@ public class StructureMapCastingMapTest {
 	@Test
 	void 맵상태조회() {
 		// 1. 맵 루틴화
-		String script = map7;
+		String script = map8;
 		List<RuleNode> ruleNodeList = MapperUtils.createTree(script);
 		for(RuleNode eachRuleNode : ruleNodeList){
 			// DFS 기반 맵서칭
@@ -315,7 +317,6 @@ public class StructureMapCastingMapTest {
 		TransactionType transactionType = RuleUtils.classifyTransactionType(rule);
 		String sourceReferenceNm = RuleUtils.getSourceReferenceName(rule);
 		if(transactionType.equals(TransactionType.CREATE_SINGLESTRING)){
-			//String targetElementNm = RuleUtils.getTargetElementName(rule);
 			System.out.println("[" + ruleType + "]" + "[" + transactionType + "]" + " source Ref : " + sourceReferenceNm);
 		}else{
 			String targetElementNm = RuleUtils.getTargetElementName(rule);
@@ -324,10 +325,28 @@ public class StructureMapCastingMapTest {
 		}
 	}
 
+	String map8 = "* (a).A\n" +
+		" * fnc\n" +
+		"  * consn\n" +
+		"   * diver='3'\n" +
+		" * fnc\n" +
+		"  * consn\n" +
+		"   * diver='15'\n"
+		;
+
 	@Test
 	void 룰_배열문제_해결하기(){
-		String script = map7;
+		String script = map8;
 		List<RuleNode> ruleNodeList = MapperUtils.createTree(script);
+
+		for(RuleNode eachRuleNode : ruleNodeList){
+			// DFS 기반 맵서칭
+			MapperUtils.printRuleAndRuleTypeInNodeTree(eachRuleNode);
+		}
+
+		System.out.println("---------------------------------");
+
+
 		JSONObject targetObject = new JSONObject();
 		try {
 			JSONObject retJsonObject = new JSONObject();
@@ -346,15 +365,25 @@ public class StructureMapCastingMapTest {
 			System.out.println("---------------------------------");
 			System.out.println(retJsonObject);
 
-			FhirContext context = new FhirContext(FhirVersionEnum.R4);
-			IBaseResource pat = context.newJsonParser().parseResource(retJsonObject.toString());
-			Patient patient = (Patient) pat;
-			System.out.println("answer : " + context.newJsonParser().encodeResourceToString(patient));
-
 		}catch(org.json.JSONException e){
 			e.printStackTrace();
 		}
 		System.out.println(targetObject.toString());
+	}
+
+	@Test
+	void MultiMapTest(){
+		MultiValueMap<String, Integer> mvMap = new LinkedMultiValueMap<>();
+
+		mvMap.add("A", 100);
+		mvMap.add("A", 200);
+		mvMap.add("A", 300);
+
+		List<Integer> a = mvMap.get("A");
+
+		for(int data : a) {
+			System.out.print(data + " ");	// output : 100 200 300
+		}
 	}
 
 
