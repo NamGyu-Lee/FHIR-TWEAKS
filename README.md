@@ -1,18 +1,12 @@
 ## 2023. 10. FHIR Terminology Server with HAPI FHIR 
-## 1. Function  
-##   1) Terminology Server can be input ImplementGuides what your project fixed very easly and quickly
-##       - this Function is provide using your server Disk.
-##       - maybe you want to input ImplementGuide in InterNet Or Somthing, using kind of clinet Tool
-##         For example) IF you want to use US core then first you need to download that IG(tar) and input the tar in your server.
-##                      and then setting the application.yaml in this project
-##                      service.terminology.ig.location, exmaplocation.
+#### HAPI FHIR 6.8.3(https://github.com/hapifhir/hapi-fhir-jpaserver-starter)을 기반으로 
+#### 국내 FHIR서비스에 적절히 맞도록 구축 할 수 있도록 아래의 기능별로 구현하였다.
 
-##   2) Terminology Server can be used normal patterns kind like search CodeSystem, ValueSet and other things
-##      of coursly, Terminology server can not provided full search service. 
-##      if you want to really need to that, can be modify configuration(TerminologyInterceptor)
-##      
+---
+#### 1. FHIR Terminology Service
 
-##   3) Terminology is not using multi-tenncy and authrization , just public service but if you need, config that kind of those below pattern.
+---
+#### 2. FHIR Validation Service
 
-
-##   4) 
+---
+#### 3. FHIR Transform Data Service
