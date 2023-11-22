@@ -1,6 +1,7 @@
 ## 2023. 10. FHIR Terminology Server with HAPI FHIR 
 #### HAPI FHIR 6.8.3(https://github.com/hapifhir/hapi-fhir-jpaserver-starter)을 기반으로 
-#### 국내 FHIR서비스에 적절히 맞도록 구축 할 수 있도록 아래의 기능별로 구현하였다.
+#### 국내 FHIR서비스에 적절히 맞도록 
+#### 쉽게 구축 할 수 있도록 아래의 기능별로 구현하였다.
 
 ---
 #### 1. FHIR Terminology Service
@@ -27,3 +28,23 @@
    1) Transform Map 구성
 
    2) Transform 수행
+
+---
+#### 4. FHIR Multitenant & 접근제어
+##### 
+   1) Multitenant 관리 및 Database size 관리
+
+   2) 사용자 접근제어 관리
+
+---
+#### 5. 사용자 활용
+#####
+   1) FHIR Data의 대한 User 가독성 처리
+
+---
+#### 6. 관리
+#####
+   1) HAPI FHIR Server 의 대한 Actuator 설정 및 예시
+
+   2) HAPI FHIR Server 의 Search Engine 활용(ElasticSearch)
+
