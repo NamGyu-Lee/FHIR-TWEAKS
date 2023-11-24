@@ -81,7 +81,6 @@ import org.hl7.fhir.common.hapi.validation.support.*;
 import org.hl7.fhir.common.hapi.validation.validator.FhirInstanceValidator;
 import org.hl7.fhir.instance.model.api.IBaseCoding;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.hapi.ctx.HapiWorkerContext;
 import org.hl7.fhir.r4.model.*;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -668,13 +667,6 @@ public class StarterJpaConfig {
 		} else {
 			throw new IllegalStateException();
 		}
-	}
-
-	// 2023. 11. 10. Test용.
-	@Bean
-	public HapiWorkerContext hapiWorkerContext(FhirContext theFhirContext, IValidationSupport theValidationSupport){
-		ourLog.info(" >>> [DEV]Simple Worker Initalized... ");
-		return new HapiWorkerContext(theFhirContext, theValidationSupport);
 	}
 
 }

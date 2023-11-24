@@ -186,8 +186,33 @@ hapi:
 #  schema_management_strategy: CREATE
 #  username: SomeUsername
 
-
 # 2023. 10. 19.
-# TODO) CONFIG) 해당 프로젝트에서 활용하는 Implement Guide 의 Server 내 위치를 정의한다
-service.terminology.ig.location: C:\\FHIRLoader\\myhealthwayProfile
-service.terminology.common.timeout: 30
+# TODO) CONFIG) 해당 프로젝트에서 정의하게될 HAPI FHIR 기반 커스텀 옵션의 세부설정을 수행한다.
+service:
+  terminology:
+    ig:
+      location: C:\\FHIRLoader\\package
+      examplelocation: C:\\FHIRLoader\\package\\example
+    common:
+      ig: # ig를 넣는 과정에서 너무 로드가 심한 경우때문에 timeout 추가
+        timeout: 3000000
+      paging:
+        defaultsize: 100
+        maxsize: 1000
+        fifosize: 320
+      search:
+        summary:
+          codesystem: true
+          valueset: true
+          searchparameter: true
+  validation:
+    enabled: true
+    remote:
+      server:
+        enabled : true
+        url: http://122.153.160.23:6010/fhir
+  transfor:
+    enabled: true
+    target: cmc
+    logging: true
+    ignorenoencounter: true

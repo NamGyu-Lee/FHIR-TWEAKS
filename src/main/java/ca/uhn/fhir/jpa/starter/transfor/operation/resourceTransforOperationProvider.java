@@ -17,7 +17,6 @@ import ca.uhn.fhir.rest.param.StringParam;
 import com.google.gson.*;
 import org.apache.commons.io.IOUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.hapi.ctx.HapiWorkerContext;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,9 +46,6 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 	void setTransformDataOperationConfigProperties(TransformDataOperationConfigProperties transformDataOperationConfigProperties){
 		this.transformDataOperationConfigProperties = transformDataOperationConfigProperties;
 	}
-
-	@Autowired
-	private HapiWorkerContext hapiWorkerContext;
 
 	FhirContext fn;
 
@@ -471,8 +467,8 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 				String encounterId = ds.getReferenceList().get("Encounter").getReference();
 
 				Procedure procedure = cmcDataTransforService.transformPlatDataToFhirProcedure(organizationId, patientId, encounterId, rowMap);
-				IFhirResourceDao resourceProviderForServiceRequest = myDaoRegistry.getResourceDao("Procedure");
-				resourceProviderForServiceRequest.update(procedure);
+				IFhirResourceDao resourceProviderForProcedure = myDaoRegistry.getResourceDao("Procedure");
+				resourceProviderForProcedure.update(procedure);
 
 				loggingInDebugMode("Procedure Request : " + cmcDataTransforService.retResourceToString(procedure));
 

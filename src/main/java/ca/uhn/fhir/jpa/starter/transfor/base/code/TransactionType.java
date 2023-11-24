@@ -9,13 +9,16 @@ import java.util.regex.Pattern;
  */
 @Getter
 public enum TransactionType {
+
+	TRANSLATION("^\\w+=TRANSLATE\\((?:'?\\w+'?|'.+?')\\s*,\\s*(?:'?\\w+'?|'.+?')\\)$"),
+	SPLIT("^\\w+=SPLIT\\(\\w+\\s*,\\s*\\w+(\\s*,\\s*\\w+)?\\)$"),
 	REFERENCE("(\\w+)=REF\\((\\w+), \\$(\\w+)\\)"),
 	CREATE_SINGLESTRING("'.+?'"),
+	COPY_WITH_DEFAULT("^\\w+=NULLTHEN\\(\\w+\\s*,\\s*'.*'\\)$"),
 	COPY_STRING(".*='([^']*)'"),
 	COPY(".*=.*"),
 	CREATE("^[^(=]*$")
 	;
-
 
 	private final Pattern pattern;
 

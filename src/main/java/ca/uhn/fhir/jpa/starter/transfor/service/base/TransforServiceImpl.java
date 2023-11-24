@@ -14,8 +14,11 @@ public class TransforServiceImpl implements TransforService {
 	public IBaseResource transformPlatDataToFhirResource(@NonNull String organizationId,
 																		  @NonNull String mapScript,
 																		  @NonNull JSONObject source) {
+	/*
 		TransformEngine engine = new TransformEngine();
 		return engine.transformDataToResource(mapScript, source);
+	*/
+		return null;
 	}
 
 }

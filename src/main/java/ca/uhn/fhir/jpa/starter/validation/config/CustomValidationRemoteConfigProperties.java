@@ -11,6 +11,9 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class CustomValidationRemoteConfigProperties {
 
+	@Value("${hapi.fhir.tester.home.server_address}")
+	private String localURL;
+
 	@Value("${service.validation.remote.server.enabled}")
 	private boolean remoteTerminologyYn;
 
@@ -23,5 +26,34 @@ public class CustomValidationRemoteConfigProperties {
 
 	public String getRemoteURL() {
 		return remoteURL;
+	}
+
+	public String getLocalURL() {	return localURL; }
+
+
+	/**
+	 * TEST ONLY
+	 *
+	 * @param localURL the local url
+	 */
+	public void setLocalURL(String localURL) {
+		this.localURL = localURL;
+	}
+
+	/**
+	 * TEST ONLY
+	 *
+	 */
+	public void setRemoteTerminologyYn(boolean remoteTerminologyYn) {
+		this.remoteTerminologyYn = remoteTerminologyYn;
+	}
+
+	/**
+	 * TEST ONLY
+	 *
+	 * @param localURL the local url
+	 */
+	public void setRemoteURL(String remoteURL) {
+		this.remoteURL = remoteURL;
 	}
 }

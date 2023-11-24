@@ -9,6 +9,7 @@ import ca.uhn.fhir.jpa.starter.transfor.base.map.ActivateTransNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.RuleNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.util.MapperUtils;
 import ca.uhn.fhir.jpa.starter.transfor.base.util.RuleUtils;
+import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationRemoteConfigProperties;
 import com.google.gson.JsonObject;
 import org.apache.jena.atlas.json.JSON;
 import org.apache.jena.base.Sys;
@@ -17,7 +18,14 @@ import org.hl7.fhir.r4.model.Patient;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.junit.Before;
 import org.junit.jupiter.api.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
@@ -29,7 +37,10 @@ import java.util.*;
  */
 public class StructureMapCastingMapTest {
 
-	TransformEngine transformEngine = new TransformEngine();
+	TransformEngine transformEngine;
+
+
+
 
 	private String map = "* a = $test1" +
 		"* b = $state" +
@@ -208,27 +219,25 @@ public class StructureMapCastingMapTest {
 		" * (profile).profile\n" +
 		"  * 'http://connectdtx.kr/fhir/StructureDefinition/connectdtx-patient'\n" +
 		"  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-patient'\n" +
-		"* identifier\n" +
+		"* (identifier).identifier\n" +
 		" * type\n" +
 		"  * (coding).coding\n" +
 		"   * system='http://terminology.hl7.org/CodeSystem/v2-0203-1'\n" +
 		"   * code=code\n" +
 		" * system='http://www.hl7korea.or.kr/Identifier/hira-krnpi'\n" +
 		" * value=value\n" +
-		" * display=value\n" +
 		" * type\n" +
 		"  * (coding).coding\n" +
 		"   * system='http://terminology.hl7.org/CodeSystem/v2-0203-2'\n" +
 		"   * code=code\n" +
 		" * system='http://www.hl7korea.or.kr/Identifier/hira-krnpi'\n" +
 		" * value=value\n" +
-		" * display=''\n" +
 		"* active='true'\n" +
 		"* (name).name\n" +
 		" * text=hng_nm\n"+
 		" * given=eng_nm\n"+
 		"* (telecom).telecom\n"+
-		" * system='phone'\n"+
+		" * system=NULLTHEN(telType, 'phone')\n"+
 		" * value=telno\n"+
 		"* gender=sex_cd\n"+
 		"* birthDate=brth_dd\n"+
@@ -240,6 +249,7 @@ public class StructureMapCastingMapTest {
 		;
 
 	String sourceMap = "{\n" +
+		"  \"resourceType\": \"Patient\",\n" +
 		"  \"id\": \"123\",\n" +
 		"  \"code\": \"v1Code\",\n" +
 		"  \"value\": \"codevalue\",\n" +
@@ -267,6 +277,14 @@ public class StructureMapCastingMapTest {
 
 	@Test
 	void 실제_동작시켜보기() throws JSONException{
+		// 해당 테스트는 진행 제대로하려면 실제 서버위에서 DI로 실행시켜야해서 생략
+		CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties = new CustomValidationRemoteConfigProperties();
+		customValidationRemoteConfigProperties.setLocalURL("http://localURL:8080/");
+		customValidationRemoteConfigProperties.setRemoteTerminologyYn(false);
+
+		transformEngine = new TransformEngine(customValidationRemoteConfigProperties);
+		System.out.println("Transform Engine Start... ! ");
+
 		String script = map7;
 		List<RuleNode> ruleNodeList = MapperUtils.createTree(script);
 		JSONObject targetObject = new JSONObject();
@@ -333,6 +351,7 @@ public class StructureMapCastingMapTest {
 		"   * diver='15'\n"
 		;
 
+	// case 1
 	String map9 =
 		"* identifier\n" +
 		" * a='1'\n" +
@@ -344,11 +363,33 @@ public class StructureMapCastingMapTest {
 		" * b='ab'\n" +
 		" * c='de'\n" +
 		"* identifier\n" +
-		" * a='3'\n";
+		" * (V1).test\n" +
+		"  * a='11'\n" +
+		"  * a='12'\n" +
+		"  * a='13'\n"
+		;
+
+	// case 2
+	String map10 =
+		"* upper\n"+
+		" * (Data).data\n" +
+		"  * inner_1='32'\n"+
+		"  * inner_2='15'\n"+
+		"* upper\n"+
+			" * (Data).data\n" +
+			"  * inner_1='32'\n"+
+			"  * inner_2\n"+
+			"   * (a).a\n"+
+			"    * (lower).lower\n"+
+			"     * sam='v1f'\n"+
+			"    * (lower).lower\n"+
+			"     * sam='v2f'\n"+
+			"     * sam='VD'\n"
+		;
 
 	@Test
 	void 룰_중복시_병합시키기(){
-		String script = map9;
+		String script = map10;
 		List<RuleNode> ruleNodeList = MapperUtils.createTree(script);
 
 		for(RuleNode eachRuleNode : ruleNodeList){
@@ -430,4 +471,102 @@ public class StructureMapCastingMapTest {
 			System.out.print(data + " ");	// output : 100 200 300
 		}
 	}
+
+	@Before
+	void initializeTraransformEngine(){
+		CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties = new CustomValidationRemoteConfigProperties();
+		customValidationRemoteConfigProperties.setLocalURL("http://localURL:8080/");
+		customValidationRemoteConfigProperties.setRemoteTerminologyYn(false);
+
+		transformEngine = new TransformEngine(customValidationRemoteConfigProperties);
+		System.out.println("Transform Engine Start... ! ");
+	}
+
+	String map11 = "* gender=TRANSLATE(VAVA, 'b')\n";
+
+	@Test
+	void 코드성데이터변환작업테스트() throws org.json.JSONException{
+		// 해당 테스트는 진행 제대로하려면 실제 서버위에서 DI로 실행시켜야해서 생략
+		CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties = new CustomValidationRemoteConfigProperties();
+		customValidationRemoteConfigProperties.setLocalURL("http://localURL:8080/");
+		customValidationRemoteConfigProperties.setRemoteTerminologyYn(false);
+
+		transformEngine = new TransformEngine(customValidationRemoteConfigProperties);
+		System.out.println("Transform Engine Start... ! ");
+
+		String script = map11;
+		List<RuleNode> ruleNodeList = MapperUtils.createTree(script);
+
+		for(RuleNode eachRuleNode : ruleNodeList){
+			// DFS 기반 맵서칭
+			MapperUtils.printRuleAndRuleTypeInNodeTree(eachRuleNode);
+		}
+
+		JSONObject source = new JSONObject();
+		source.put("VAVA", "VDV");
+		transformEngine.transformDataToResource(map11, source);
+	}
+
+	String map12 = "* gender=NULLTHEN(VAVA, 'b')\n";
+
+	@Test
+	void NUll의경우_DEFAULT넣기() throws org.json.JSONException{
+		// 해당 테스트는 진행 제대로하려면 실제 서버위에서 DI로 실행시켜야해서 생략
+		CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties = new CustomValidationRemoteConfigProperties();
+		customValidationRemoteConfigProperties.setLocalURL("http://localURL:8080/");
+		customValidationRemoteConfigProperties.setRemoteTerminologyYn(false);
+
+		transformEngine = new TransformEngine(customValidationRemoteConfigProperties);
+		System.out.println("Transform Engine Start... ! ");
+
+		String script = map12;
+		List<RuleNode> ruleNodeList = MapperUtils.createTree(script);
+
+		for(RuleNode eachRuleNode : ruleNodeList){
+			// DFS 기반 맵서칭
+			MapperUtils.printRuleAndRuleTypeInNodeTree(eachRuleNode);
+		}
+
+		JSONObject source = new JSONObject();
+		source.put("VAVA", "VAA");
+		transformEngine.transformDataToResource(map12, source);
+	}
+
+	String map13 = "* name\n"+
+		" * text=SPLIT(name, 0, 2)\n" +
+		" * given=SPLIT(name, 2, 4)\n";
+
+	/*
+		" * given=SPLIT(name, 2, 4)\n"+
+		"  * vgiven=SPLIT(name, 2, 4)\n"+
+		" * text=SPLIT(name, 0, 2)\n"+
+		" * given=SPLIT(name, 2, 4)\n" +
+		"  * xgiven=SPLIT(name, 2, 4)\n"
+		;
+	*/
+
+	@Test
+	void 데이터_스플릿_처리_구현() throws org.json.JSONException{
+		// 해당 테스트는 진행 제대로하려면 실제 서버위에서 DI로 실행시켜야해서 생략
+		CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties = new CustomValidationRemoteConfigProperties();
+		customValidationRemoteConfigProperties.setLocalURL("http://localURL:8080/");
+		customValidationRemoteConfigProperties.setRemoteTerminologyYn(false);
+
+		transformEngine = new TransformEngine(customValidationRemoteConfigProperties);
+		System.out.println("Transform Engine Start... ! ");
+
+		String script = map13;
+		List<RuleNode> ruleNodeList = MapperUtils.createTree(script);
+
+		for(RuleNode eachRuleNode : ruleNodeList){
+			// DFS 기반 맵서칭
+			MapperUtils.printRuleAndRuleTypeInNodeTree(eachRuleNode);
+		}
+
+		JSONObject source = new JSONObject();
+		source.put("name", "가나다라");
+		transformEngine.transformDataToResource(script, source);
+	}
+
+
 }
