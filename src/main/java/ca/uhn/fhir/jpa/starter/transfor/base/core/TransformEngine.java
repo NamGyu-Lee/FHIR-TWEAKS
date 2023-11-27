@@ -8,6 +8,8 @@ import ca.uhn.fhir.jpa.starter.transfor.base.map.ActivateTransNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.RuleNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.util.MapperUtils;
 import ca.uhn.fhir.jpa.starter.transfor.base.util.RuleUtils;
+import ca.uhn.fhir.jpa.starter.transfor.code.ResourceNameSummaryCode;
+import ca.uhn.fhir.jpa.starter.transfor.util.TransformUtil;
 import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationRemoteConfigProperties;
 import lombok.NonNull;
 import org.apache.commons.lang3.StringUtils;
@@ -88,6 +90,24 @@ public class TransformEngine{
 				}else{
 					throw new JSONException("Execute Rule 중에 예상치 못한 함수가 들어왔습니다. Split은 반드시 파라미터가 2개 혹은 3개여야합니다.");
 				}
+			}else if(ruleNode.getTransactionType().equals(TransactionType.MERGE)){
+				System.out.println("ruleNode.getSourceReferenceNm() : " + ruleNode.getSourceReferenceNm());
+				List<String> argumentParam = this.extractMultipleValues(ruleNode.getSourceReferenceNm());
+				System.out.println(" MERGE RULE !!! argumentParam : " + argumentParam.size());
+
+				String mergedStr = "";
+				for(String eachText : argumentParam){
+					if(eachText.matches("^'.*'$")){
+						mergedStr = mergedStr + eachText.replaceAll("'", "");
+					}else{
+						// SOURCE에서 특정 위치를 지정해줘야한다. 
+						// A.가.a.v1 같이
+						mergedStr = mergedStr + TransformUtil.getNestedValueInJson(source, eachText);
+					}
+				}
+				System.out.println(" vVAL : " + mergedStr);
+
+				target.put(ruleNode.getTargetElementNm(), mergedStr);
 			}
 		} else if (ruleNode.getRuleType().equals(RuleType.CREATE_ARRAY)){
 			String targetText = RuleUtils.getArrayTypeObjectNameTarget(ruleNode.getRule());
@@ -241,6 +261,10 @@ public class TransformEngine{
 
 		// 1. 트리 생성
 		List<RuleNode> ruleNodeList = MapperUtils.createTree(script);
+		for(RuleNode eachRuleNode : ruleNodeList){
+			// DFS 기반 맵서칭
+			MapperUtils.printRuleAndRuleTypeInNodeTree(eachRuleNode);
+		}
 
 		// 2. 변환 수행
 		JSONObject targetObject = new JSONObject();
@@ -300,8 +324,17 @@ public class TransformEngine{
 			FhirContext context = new FhirContext(FhirVersionEnum.R4);
 			IBaseResource resource = context.newJsonParser().parseResource(retJsonObject.toString());
 
+			// 3. 변환의 대한 키 생성
+			LinkedHashSet<String> identifierSet = MapperUtils.createIdentifierMap(ruleNodeList);
+			if(identifierSet.size() >= 1 && ResourceNameSummaryCode.isCanbeSummaryName(resource.fhirType())){
+				String id = TransformUtil.createResourceId(resource.fhirType(), identifierSet, sourceObj);
+				System.out.println(">>>>>>>>>>>>>>>>> CREATE ID : " + id);
+				resource.setId(id);
+			}
+
 			return resource;
 		}catch(org.json.JSONException e){
+			e.printStackTrace();
 			throw new IllegalArgumentException("데이터를 변환하는 과정에서 오류가 발생하였습니다.");
 		}
 	}

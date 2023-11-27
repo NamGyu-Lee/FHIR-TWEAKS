@@ -9,6 +9,7 @@ import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigPrope
 import ca.uhn.fhir.jpa.starter.transfor.dto.base.ReferenceDataMatcher;
 import ca.uhn.fhir.jpa.starter.transfor.dto.base.ReferenceDataSet;
 import ca.uhn.fhir.jpa.starter.transfor.service.cmc.CmcDataTransforServiceImpl;
+import ca.uhn.fhir.jpa.starter.transfor.util.TransformUtil;
 import ca.uhn.fhir.model.api.IQueryParameterType;
 import ca.uhn.fhir.rest.annotation.Operation;
 import ca.uhn.fhir.rest.api.SearchTotalModeEnum;
@@ -29,11 +30,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 2023. 11. 07. CMC 기반의 EMR시스템에서 접근하는 Operation의 대하여 핸들링한다.
+ * 2023. 11. 07. Client 방식으로 맵핑해서 데이터를 적재하는 프로세스의 대하여
+ * 사용자에게 서비스를 제공하는 Controller 역할을 수행한다.
  */
-public class resourceTransforOperationProvider extends BaseJpaProvider {
+public class ResourceTransforOperationProvider extends BaseJpaProvider {
 
-	private static final Logger ourLog = LoggerFactory.getLogger(resourceTransforOperationProvider.class);
+	private static final Logger ourLog = LoggerFactory.getLogger(ResourceTransforOperationProvider.class);
 
 	private DaoRegistry myDaoRegistry;
 	@Autowired
@@ -47,14 +49,18 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 		this.transformDataOperationConfigProperties = transformDataOperationConfigProperties;
 	}
 
-	FhirContext fn;
+	private TransformUtil transformUtil;
 
-	public resourceTransforOperationProvider(){
+	private FhirContext fn;
+
+	public ResourceTransforOperationProvider(){
 		fn = this.getContext();
+		transformUtil = new TransformUtil(transformDataOperationConfigProperties);
 	}
 
-	public resourceTransforOperationProvider(FhirContext fn){
+	public ResourceTransforOperationProvider(FhirContext fn){
 		this.fn = fn;
+		transformUtil = new TransformUtil(transformDataOperationConfigProperties);
 	}
 
 	ReferenceDataMatcher referenceDataMatcher = new ReferenceDataMatcher();
@@ -84,7 +90,7 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 			JsonElement jsonElement = jsonParser.parse(bodyData);
 			JsonObject jsonObject = jsonElement.getAsJsonObject();
 
-			Queue<Map.Entry<String, JsonElement>> sortedQueue = sortingCreateResourceArgument(jsonObject);
+			Queue<Map.Entry<String, JsonElement>> sortedQueue = transformUtil.sortingCreateResourceArgument(jsonObject);
 
 			// 실질적인 변환 부분
 			// 해당 영역부터 개별 대상자로 한정
@@ -126,7 +132,7 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 			JsonElement jsonElement = jsonParser.parse(bodyData);
 			JsonObject jsonObject = jsonElement.getAsJsonObject();
 
-			Queue<Map.Entry<String, JsonElement>> sortedQueue = sortingCreateResourceArgument(jsonObject);
+			Queue<Map.Entry<String, JsonElement>> sortedQueue = transformUtil.sortingCreateResourceArgument(jsonObject);
 
 			// 실질적인 변환 부분
 			// 해당 영역부터 개별 대상자로 한정
@@ -156,7 +162,7 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 
 		for(int eachRowCount = 0; jsonArray.size() > eachRowCount; eachRowCount++){
 			JsonObject eachRowJsonObj = jsonArray.get(eachRowCount).getAsJsonObject();
-			Map<String, String> rowMap = convertJsonObjectToMap(eachRowJsonObj);
+			Map<String, String> rowMap = TransformUtil.convertJsonObjectToMap(eachRowJsonObj);
 			if ("organization".equals(entry.getKey())) {
 				ourLog.info("-------------------------- Organization");
 				Organization organization = cmcDataTransforService.transformPlatDataToFhirOrganization(rowMap);
@@ -561,87 +567,6 @@ public class resourceTransforOperationProvider extends BaseJpaProvider {
 		}
 	}
 
-	// 2023. 11. 13. 요구로 온 데이터들의 대하여 래퍼런스 구조에 맞게 Sorting 처리한다.
-	private Queue<Map.Entry<String, JsonElement>> sortingCreateResourceArgument(JsonObject jsonObject){
-		Queue<Map.Entry<String, JsonElement>> upperSortingQueue = new LinkedList<>();
-		Queue<Map.Entry<String, JsonElement>> lowerSortingQueue = new LinkedList<>();
-		Queue<Map.Entry<String, JsonElement>> nonSortingQueue = new LinkedList<>();
-		Queue<Map.Entry<String, JsonElement>> sortedQueue = new LinkedList<>();
-
-		// Upper
-		for(String upperString : transformDataOperationConfigProperties.getResourceUpperSortingReferenceSet()){
-			for(Map.Entry<String, JsonElement> eachEntry : jsonObject.entrySet()){
-				if(eachEntry.getKey().equals(upperString)){
-					upperSortingQueue.add(eachEntry);
-				}
-			}
-		}
-
-		// Lower
-		for(String lowerString : transformDataOperationConfigProperties.getResourceLowerSortingReferenceSet()){
-			for(Map.Entry<String, JsonElement> eachEntry : jsonObject.entrySet()){
-				if(eachEntry.getKey().equals(lowerString)){
-					lowerSortingQueue.add(eachEntry);
-				}
-			}
-		}
-
-		// Non
-		Set<String> nonSortingList = new HashSet<>();
-		nonSortingList.addAll(transformDataOperationConfigProperties.getResourceUpperSortingReferenceSet());
-		nonSortingList.addAll(transformDataOperationConfigProperties.getResourceLowerSortingReferenceSet());
-		for(Map.Entry<String, JsonElement> eachEntry : jsonObject.entrySet()){
-			boolean isAlreadySorted = false;
-			for(String nonString : nonSortingList){
-				if(eachEntry.getKey().equals(nonString)){
-					isAlreadySorted = true;
-				}
-			}
-			if(isAlreadySorted != true){
-				nonSortingQueue.add(eachEntry);
-			}
-		}
-
-		// 1.2. merge
-		while(upperSortingQueue.size() != 0){
-			sortedQueue.add(upperSortingQueue.poll());
-		}
-		while(nonSortingQueue.size() != 0){
-			sortedQueue.add(nonSortingQueue.poll());
-		}
-		while(lowerSortingQueue.size() != 0){
-			sortedQueue.add(lowerSortingQueue.poll());
-		}
-
-		return sortedQueue;
-	}
-
-	// 2023. 11. 14. Json Object 를 Map 으로 치환한다.
-	private Map<String, String> convertJsonObjectToMap(JsonObject jsonObject) {
-		Gson gson = new Gson();
-
-		// Gson이 Return 을 바로 Map<String, String> 을 보내더라도, 숫자형 값들의 대하여는 Double Type으로 반환하여 Map에 넣는 이슈가 있어 추가작업
-		//  + 변수가 정수여도 Double 형변환이 일어나(ex.. cretno=1.0) 이를 검증하고 치환하는 로직을 추가
-		Map<String, Object> reqData = gson.fromJson(jsonObject, Map.class);
-		Map<String, String> data = reqData.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> convertObjectToString(e.getValue())));
-		return data;
-	}
-
-	private static String convertObjectToString(Object value) {
-		if (value == null) {
-			return "";
-		}
-		if (value instanceof Number) {
-			Number number = (Number) value;
-			// 정수와 실수를 구분
-			if (number.doubleValue() == number.longValue()) {
-				return Long.toString(number.longValue());
-			} else {
-				return Double.toString(number.doubleValue());
-			}
-		}
-		return value.toString();
-	}
 
 	private void loggingInDebugMode(String arg){
 		if(transformDataOperationConfigProperties.isTransforLogging()){

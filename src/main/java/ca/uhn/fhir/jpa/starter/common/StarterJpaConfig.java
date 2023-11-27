@@ -49,7 +49,8 @@ import ca.uhn.fhir.jpa.starter.common.validation.IRepositoryValidationIntercepto
 import ca.uhn.fhir.jpa.starter.terminology.config.TerminologyCodeConfigProperties;
 import ca.uhn.fhir.jpa.starter.terminology.config.TerminologyPagingConfigProperties;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
-import ca.uhn.fhir.jpa.starter.transfor.operation.resourceTransforOperationProvider;
+import ca.uhn.fhir.jpa.starter.transfor.operation.ResourceTransEngineOperationProvider;
+import ca.uhn.fhir.jpa.starter.transfor.operation.ResourceTransforOperationProvider;
 import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationBaseConfigProperties;
 import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationRemoteConfigProperties;
 import ca.uhn.fhir.jpa.starter.terminology.config.TerminologySearchConfigProperties;
@@ -153,9 +154,16 @@ public class StarterJpaConfig {
 
 	@Bean
 	// 2023. 11. 10. Resource 변환 Provider 구성
-	public resourceTransforOperationProvider cmcResourceTransforOperationProvider(FhirContext theFhirContext){
-		resourceTransforOperationProvider resourceTransforOperationProvider = new resourceTransforOperationProvider(theFhirContext);
+	public ResourceTransforOperationProvider resourceTransforOperationProvider(FhirContext fhirContext){
+		ResourceTransforOperationProvider resourceTransforOperationProvider = new ResourceTransforOperationProvider(fhirContext);
 		return resourceTransforOperationProvider;
+	}
+
+	@Bean
+	// 2023. 11. 27. 자체구현한 알고리즘의 Transform Engine 을 활용한 Resource 변환 Provider 구성
+	public ResourceTransEngineOperationProvider resourceTransEngineOperationProvider(FhirContext fhirContext){
+		ResourceTransEngineOperationProvider resourceTransEngineOperationProvider = new ResourceTransEngineOperationProvider(fhirContext);
+		return resourceTransEngineOperationProvider;
 	}
 
 	/**
@@ -288,7 +296,7 @@ public class StarterJpaConfig {
 
 	@Bean
 	public RestfulServer restfulServer(IFhirSystemDao<?, ?> fhirSystemDao, AppProperties appProperties, DaoRegistry daoRegistry, Optional<MdmProviderLoader> mdmProviderProvider, IJpaSystemProvider jpaSystemProvider, ResourceProviderFactory resourceProviderFactory, JpaStorageSettings jpaStorageSettings, ISearchParamRegistry searchParamRegistry, IValidationSupport theValidationSupport, DatabaseBackedPagingProvider databaseBackedPagingProvider, LoggingInterceptor loggingInterceptor, Optional<TerminologyUploaderProvider> terminologyUploaderProvider, Optional<SubscriptionTriggeringProvider> subscriptionTriggeringProvider, Optional<CorsInterceptor> corsInterceptor, IInterceptorBroadcaster interceptorBroadcaster, Optional<BinaryAccessProvider> binaryAccessProvider, BinaryStorageInterceptor binaryStorageInterceptor, IValidatorModule validatorModule, Optional<GraphQLProvider> graphQLProvider, BulkDataExportProvider bulkDataExportProvider, BulkDataImportProvider bulkDataImportProvider, ValueSetOperationProvider theValueSetOperationProvider, ReindexProvider reindexProvider, PartitionManagementProvider partitionManagementProvider, Optional<RepositoryValidatingInterceptor> repositoryValidatingInterceptor, IPackageInstallerSvc packageInstallerSvc, ThreadSafeResourceDeleterSvc theThreadSafeResourceDeleterSvc, ApplicationContext appContext, Optional<IpsOperationProvider> theIpsOperationProvider
-	 , resourceTransforOperationProvider resourceTransforOperationProvider
+	 , ResourceTransforOperationProvider resourceTransforOperationProvider, ResourceTransEngineOperationProvider resourceTransEngineOperationProvider
 	) {
 
 		ourLog.info(" >> restful Server Start...!!");
@@ -572,8 +580,14 @@ public class StarterJpaConfig {
 			if ("cmc".equals(transformDataOperationConfigProperties.getServiceTarget())) {
 				ourLog.info(" ㄴ> Cathoric Medical Centor Data exchange service Operation Provider registed. ");
 			}
+
+			// transfor 패턴 분류에 따라 다른 Operation Provider가 활용
+			if("engine".equals(transformDataOperationConfigProperties.getTypeOfTransformPattern())){
+				fhirServer.registerProvider(resourceTransEngineOperationProvider);
+			}else if("client".equals(transformDataOperationConfigProperties.getTypeOfTransformPattern())){
+				fhirServer.registerProvider(resourceTransforOperationProvider);
+			}
 		}
-		fhirServer.registerProvider(resourceTransforOperationProvider);
 
 		// TODO. CONFIG) 사용자 요구에 따라 paging 조정
 		fhirServer.setPagingProvider(new TerminologyPagingProvider(terminologyPagingConfigProperties));

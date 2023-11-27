@@ -28,13 +28,15 @@ public class RuleNode {
 
 	String sourceReferenceNm;
 
+	boolean isIdentifierNode;
+
 	int level;
 
 	List<RuleNode> children;
 
 	RuleNode parent;
 
-	public RuleNode(RuleNode parentRuleNode, String rule, int level) {
+	public RuleNode(RuleNode parentRuleNode, String rule, int level, boolean isIdentifierNode) {
 		this.parent = parentRuleNode;
 		this.rule = rule;
 		ruleType = RuleUtils.classifyRuleType(rule);
@@ -48,6 +50,7 @@ public class RuleNode {
 		}
 		this.level = level;
 		this.children = new ArrayList<>();
+		this.isIdentifierNode = isIdentifierNode;
 	}
 
 	public void addChild(RuleNode child) {

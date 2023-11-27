@@ -3,32 +3,15 @@ package ca.uhn.fhir.jpa.starter.transfor.base.core;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.context.FhirVersionEnum;
 import ca.uhn.fhir.context.support.IValidationSupport;
-import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
-import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
 import ca.uhn.fhir.jpa.provider.BaseJpaProvider;
-import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
-import ca.uhn.fhir.jpa.starter.common.FhirTesterConfig;
-import ca.uhn.fhir.jpa.starter.terminology.util.FHIRUtils;
 import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationRemoteConfigProperties;
-import ca.uhn.fhir.model.api.IQueryParameterType;
-import ca.uhn.fhir.rest.api.SearchTotalModeEnum;
-import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.gclient.IOperationUnnamed;
-import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.util.ParametersUtil;
 import lombok.NonNull;
 import org.apache.commons.lang3.StringUtils;
-import org.hl7.fhir.ConceptMap;
-import org.hl7.fhir.common.hapi.validation.support.PrePopulatedValidationSupport;
-import org.hl7.fhir.dstu3.model.Parameters;
 import org.hl7.fhir.instance.model.api.IBaseParameters;
 import org.hl7.fhir.r4.model.CodeSystem;
-import org.hl7.fhir.r4.model.StructureDefinition;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.stereotype.Component;
 
 import java.util.Iterator;
 
@@ -56,7 +39,6 @@ public class TranslationEngine extends BaseJpaProvider {
 	 */
 	public String translateCode(@NonNull String source, @NonNull String codeUrl) throws IllegalArgumentException{
 		// 1. 해당 코드 시스템의 local 검색
-		// TODO. 이슈 가능성 존재. 본인의 주소를 가져올 수 있어야..
 		String localUrl = customValidationRemoteConfigProperties.getLocalURL();
 		System.out.println("[DEV] localURL : " + localUrl);
 

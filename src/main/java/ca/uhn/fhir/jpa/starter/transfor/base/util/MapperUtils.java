@@ -1,8 +1,11 @@
 package ca.uhn.fhir.jpa.starter.transfor.base.util;
 
+import ca.uhn.fhir.jpa.starter.transfor.base.code.RuleType;
+import ca.uhn.fhir.jpa.starter.transfor.base.code.TransactionType;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.RuleNode;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 /** StructureMap 을 대체 할 수 있는 Map 을 구성하기위한 기준정의를 Node로 수행
@@ -19,6 +22,12 @@ public class MapperUtils {
 		return count;
 	}
 
+	/**
+	 * 룰을 가져와서 N진 트리로 재구성해준다.
+	 *
+	 * @param script the script
+	 * @return the list
+	 */
 	public static List<RuleNode> createTree(String script) {
 		List<RuleNode> ruleNodes = new ArrayList<>();
 		RuleNode currentParent = null;
@@ -31,8 +40,18 @@ public class MapperUtils {
 			line = line.replace("*", "");
 			line = line.replaceAll("\\s*:\\s*", ":");
 
+			// ID 생성용 키값(혹은 조합키값) 인지 검증.
+			// id = (KEY)id -> id = id, isIdentifierNode = true;
+			boolean isIdentifierNode = false;
+			if(line.contains("(KEY)")){
+				line = line.replaceAll("\\(KEY\\)", "");
+				isIdentifierNode = true;
+			}else{
+				isIdentifierNode = false;
+			}
+
 			// 맵 구조화
-			RuleNode ruleNode = new RuleNode(null, line.trim(), level);
+			RuleNode ruleNode = new RuleNode(null, line.trim(), level, isIdentifierNode);
 			
 			if (level == currentLevel && currentParent != null) {
 				ruleNode.setParent(currentParent);
@@ -63,6 +82,23 @@ public class MapperUtils {
 			beforeNode = ruleNode;
 		}
 		return ruleNodes;
+	}
+
+	/**
+	 * 2023. 11. 27. 룰 중에 Id 조건인 것들만 반환해준다.
+	 *
+	 * @param searchRule the search rule
+	 * @return the linked hash set
+	 */
+	public static LinkedHashSet<String> createIdentifierMap(List<RuleNode> searchRule){
+		// TODO. Dept가 내려가는 경우 어떻게 핸들링???
+		LinkedHashSet<String> identifierLinkedSet = new LinkedHashSet<>();
+		for(RuleNode eachNode : searchRule){
+			if(eachNode.isIdentifierNode()){
+				identifierLinkedSet.add(eachNode.getSourceReferenceNm());
+			}
+		}
+		return identifierLinkedSet;
 	}
 
 	public static void printRuleTextInNodeTree(int startLevel, RuleNode nd){

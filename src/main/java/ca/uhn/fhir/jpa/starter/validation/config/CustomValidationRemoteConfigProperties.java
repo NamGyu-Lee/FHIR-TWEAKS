@@ -51,7 +51,7 @@ public class CustomValidationRemoteConfigProperties {
 	/**
 	 * TEST ONLY
 	 *
-	 * @param localURL the local url
+	 * @param remoteURL the local url
 	 */
 	public void setRemoteURL(String remoteURL) {
 		this.remoteURL = remoteURL;

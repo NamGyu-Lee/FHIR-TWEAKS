@@ -17,6 +17,9 @@ public class TransformDataOperationConfigProperties {
 	@Value("${service.transfor.enabled}")
 	private boolean transforEnabled;
 
+	@Value("${service.transfor.type}")
+	private String typeOfTransformPattern;
+
 	@Value("${service.transfor.target}")
 	private String serviceTarget;
 
@@ -54,6 +57,8 @@ public class TransformDataOperationConfigProperties {
 	public boolean isTransforEnabled() {
 		return transforEnabled;
 	}
+
+	public String getTypeOfTransformPattern() { return typeOfTransformPattern; }
 
 	public String getServiceTarget() {
 		return serviceTarget;

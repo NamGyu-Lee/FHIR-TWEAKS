@@ -11,7 +11,8 @@ import java.util.regex.Pattern;
 public enum TransactionType {
 
 	TRANSLATION("^\\w+=TRANSLATE\\((?:'?\\w+'?|'.+?')\\s*,\\s*(?:'?\\w+'?|'.+?')\\)$"),
-	SPLIT("^\\w+=SPLIT\\(\\w+\\s*,\\s*\\w+(\\s*,\\s*\\w+)?\\)$"),
+	SPLIT("^\\w+=\\s*SPLIT\\(\\w+\\s*,\\s*\\w+(\\s*,\\s*\\w+)?\\)$"),
+	MERGE("^\\w+\\s*=\\s*MERGE\\(.*\\)$"),
 	REFERENCE("(\\w+)=REF\\((\\w+), \\$(\\w+)\\)"),
 	CREATE_SINGLESTRING("'.+?'"),
 	COPY_WITH_DEFAULT("^\\w+=NULLTHEN\\(\\w+\\s*,\\s*'.*'\\)$"),

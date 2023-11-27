@@ -39,9 +39,6 @@ public class StructureMapCastingMapTest {
 
 	TransformEngine transformEngine;
 
-
-
-
 	private String map = "* a = $test1" +
 		"* b = $state" +
 		"* (address).address" +
@@ -567,6 +564,9 @@ public class StructureMapCastingMapTest {
 		source.put("name", "가나다라");
 		transformEngine.transformDataToResource(script, source);
 	}
+
+
+
 
 
 }
