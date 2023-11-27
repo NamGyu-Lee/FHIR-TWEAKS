@@ -38,7 +38,6 @@ public class TransformEngine{
 		translationEngine = new TranslationEngine(customValidationRemoteConfigProperties);
 	}
 
-
 	// 룰 실행부분
 	public JSONObject executeRule(RuleNode ruleNode, JSONObject source) throws JSONException {
 		JSONObject target = new JSONObject();

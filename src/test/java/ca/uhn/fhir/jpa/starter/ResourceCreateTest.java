@@ -132,12 +132,16 @@ public class ResourceCreateTest {
 		String script = map1;
 		JSONObject targetObject = new JSONObject();
 		try {
+			System.out.println("--------------------");
 			JSONObject sourceObj = new JSONObject(sourceMap);
-			transformEngine.transformDataToResource(script, sourceObj);
+			IBaseResource resource = transformEngine.transformDataToResource(script, sourceObj);
+
+			FhirContext context = new FhirContext(FhirVersionEnum.R4);
+			System.out.println(context.newJsonParser().encodeResourceToString(resource));
+			System.out.println("--------------------");
 		}catch(org.json.JSONException e){
 			e.printStackTrace();
 		}
-		System.out.println(targetObject.toString());
 	}
 
 	@Test
