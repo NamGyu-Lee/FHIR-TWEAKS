@@ -7,7 +7,7 @@
 #### 1. FHIR Terminology Service
 ##### 
    1) Implement Guide 적용
-    - 기본적인 IG 적용
+    - 기본적인 IG 적용 패턴 및 방법 정의
     - 대용량 CodeSystem의 대한 적용
     - 원내 자체적인 CodeSystem의 대한 적용
 
@@ -30,7 +30,7 @@
    2) Transform 수행
 
 ---
-#### 4. FHIR Multitenant & 접근제어
+#### 4. FHIR Multi-tenant & 접근제어
 ##### 
    1) Multitenant 관리 및 Database size 관리
 
