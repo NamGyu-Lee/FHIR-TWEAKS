@@ -5,11 +5,14 @@ import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigPrope
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.model.*;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.springframework.core.io.ClassPathResource;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -149,4 +152,59 @@ public class TransformUtil {
 		}
 		return tempObj.get(keys[keys.length - 1]);
 	}
+
+	/** 2023. 11. 28. Map 을 조회한다.
+	 * Get map string.
+	 *
+	 * @param mapType the map type
+	 * @return the string
+	 */
+	public static String getMap(String mapType){
+		LinkedList<String> linkedList = splitByDot(mapType);
+
+		System.out.println(" MAP LOCATION : " + linkedList);
+
+		String location = "";
+		Iterator<String> iterator = linkedList.iterator();
+		while(iterator.hasNext()){
+			if(location.length()== 0){
+				location = iterator.next();
+			}else{
+				location = location +"/"+ iterator.next();
+			}
+		}
+		location = location + ".txt";
+		System.out.println("LOCATION : " + location);
+
+		ClassPathResource resource = new ClassPathResource(location);
+		try {
+			Path path = Paths.get(resource.getURI());
+			List<String> content = Files.readAllLines(path);
+			String retString = "";
+			for(String eachLine : content) {
+				retString = retString + eachLine + "\n";
+			}
+
+			System.out.println(retString);
+			return retString;
+		} catch (IOException e) {
+			throw new IllegalArgumentException(mapType + " 이 정의되지 않았거나, 파일 호출 과정에서 오류가 발생하였습니다.");
+		}
+	}
+
+	/**
+	 * Split by dot linked list.
+	 *
+	 * @param input the input
+	 * @return the linked list
+	 */
+	public static LinkedList<String> splitByDot(String input) {
+		LinkedList<String> list = new LinkedList<>();
+		String[] parts = input.split("\\.");
+		for (String part : parts) {
+			list.add(part);
+		}
+		return list;
+	}
+
 }

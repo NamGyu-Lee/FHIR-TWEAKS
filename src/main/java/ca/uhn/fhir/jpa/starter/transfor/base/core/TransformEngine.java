@@ -107,6 +107,8 @@ public class TransformEngine{
 				System.out.println(" vVAL : " + mergedStr);
 
 				target.put(ruleNode.getTargetElementNm(), mergedStr);
+			}else if(ruleNode.getTransactionType().equals(TransactionType.UUID)){
+				target.put(ruleNode.getTargetElementNm(), UUID.randomUUID());
 			}
 		} else if (ruleNode.getRuleType().equals(RuleType.CREATE_ARRAY)){
 			String targetText = RuleUtils.getArrayTypeObjectNameTarget(ruleNode.getRule());
@@ -318,8 +320,6 @@ public class TransformEngine{
 				}
 			}
 
-			ourLog.info(" Operation Result : " + retJsonObject.toString());
-
 			FhirContext context = new FhirContext(FhirVersionEnum.R4);
 			IBaseResource resource = context.newJsonParser().parseResource(retJsonObject.toString());
 
@@ -327,9 +327,10 @@ public class TransformEngine{
 			LinkedHashSet<String> identifierSet = MapperUtils.createIdentifierMap(ruleNodeList);
 			if(identifierSet.size() >= 1 && ResourceNameSummaryCode.isCanbeSummaryName(resource.fhirType())){
 				String id = TransformUtil.createResourceId(resource.fhirType(), identifierSet, sourceObj);
-				System.out.println(">>>>>>>>>>>>>>>>> CREATE ID : " + id);
 				resource.setId(id);
 			}
+
+			ourLog.info(" Operation Result : " + retJsonObject.toString());
 
 			return resource;
 		}catch(org.json.JSONException e){
