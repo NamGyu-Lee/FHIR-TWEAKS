@@ -5,6 +5,7 @@ import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigPrope
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import org.apache.commons.lang3.StringUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.springframework.core.io.ClassPathResource;
@@ -13,6 +14,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -113,28 +115,32 @@ public class TransformUtil {
 	}
 
 	/**
-	 * Create resource id string.
- 	 * 기존 디자인의 확장버전. Map에서 (Key)를 확인하여 가져온다.
+	 *
 	 * @param resourceType  the ResourceType
 	 * @param requestMap    the request map
-	 * @param identifierSet the identifier set
+	 * @param partOfKeySet the part Of KeySet
 	 * @return the string
 	 * @throws IllegalArgumentException the illegal argument exception
 	 */
-	public static String createResourceId(String resourceType, LinkedHashSet<String> identifierSet, JSONObject requestMap) throws IllegalArgumentException{
+	public static String createResourceId(String resourceType, LinkedHashSet<String> partOfKeySet, JSONObject requestMap) throws IllegalArgumentException{
 			try {
 				String retIdentifier = "";
 				retIdentifier = ResourceNameSummaryCode.findSummaryName(resourceType).getSummaryName();
 
-				for (String keyElement : identifierSet) {
-					retIdentifier = retIdentifier + "." + requestMap.get(keyElement);
+				for (String keyElement : partOfKeySet) {
+					if(StringUtils.isBlank(retIdentifier)) {
+						retIdentifier = requestMap.getString(keyElement);
+					}else {
+						retIdentifier = retIdentifier + "." + requestMap.getString(keyElement);
+					}
 				}
 
 				return retIdentifier;
 			}catch(JSONException e){
-				throw new IllegalArgumentException("Source에서 값을 찾을 수 없습니다. " + requestMap + "   > " + identifierSet);
+				throw new IllegalArgumentException("Source에서 값을 찾을 수 없습니다. " + requestMap + "   > " + partOfKeySet);
 			}
 	}
+
 
 	/**
 	 * Json 내에 있는 계층구조 를 따라가서 조회해준다.
@@ -162,8 +168,6 @@ public class TransformUtil {
 	public static String getMap(String mapType){
 		LinkedList<String> linkedList = splitByDot(mapType);
 
-		System.out.println(" MAP LOCATION : " + linkedList);
-
 		String location = "";
 		Iterator<String> iterator = linkedList.iterator();
 		while(iterator.hasNext()){
@@ -174,7 +178,6 @@ public class TransformUtil {
 			}
 		}
 		location = location + ".txt";
-		System.out.println("LOCATION : " + location);
 
 		ClassPathResource resource = new ClassPathResource(location);
 		try {
@@ -185,7 +188,6 @@ public class TransformUtil {
 				retString = retString + eachLine + "\n";
 			}
 
-			System.out.println(retString);
 			return retString;
 		} catch (IOException e) {
 			throw new IllegalArgumentException(mapType + " 이 정의되지 않았거나, 파일 호출 과정에서 오류가 발생하였습니다.");
@@ -207,4 +209,14 @@ public class TransformUtil {
 		return list;
 	}
 
+	public static String convertDateTimeSourceToTarget(String sourceDate, String sourceDateType, String targetDateType){
+		SimpleDateFormat inputFormat = new SimpleDateFormat(sourceDateType);
+		try {
+			Date date = inputFormat.parse(sourceDate);
+			SimpleDateFormat outputFormat = new SimpleDateFormat(targetDateType);
+			return outputFormat.format(date);
+		}catch(java.text.ParseException e){
+			throw new IllegalArgumentException("잘못된 날짜 구조를 가지고 있어 오류가 발생하였습니다.");
+		}
+	}
 }

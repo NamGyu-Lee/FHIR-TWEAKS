@@ -1,0 +1,22 @@
+* resourceType='Organization'
+* id=(KEY)SPLIT(proc_corp_cd, 26)
+* meta
+ * (profile).profile
+  * 'http://connectdtx.kr/fhir/StructureDefinition/connectdtx-organization'
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-healthcare-organization'
+* identifier
+ * system='http://www.hl7korea.or.kr/Identifier/hira-krnpi'
+ * value=proc_corp_cd
+ * display=hosp_nm
+* type
+  * (coding).coding
+   * system='http://www.hl7korea.or.kr/CodeSystem/hira-healthcare-organization-types'
+   * code=hosp_flag
+* active='true'
+* name=hosp_nm
+* (telecom).telecom
+ * system=NVL(telType, 'phone')
+ * value=telno
+* (address).address
+ * text=hosp_addr
+ * postalCode=zipcd

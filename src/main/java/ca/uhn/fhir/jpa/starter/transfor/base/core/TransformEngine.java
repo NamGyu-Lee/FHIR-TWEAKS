@@ -40,6 +40,10 @@ public class TransformEngine{
 
 	// 룰 실행부분
 	public JSONObject executeRule(RuleNode ruleNode, JSONObject source) throws JSONException {
+
+		System.out.println("[DEV] Start Rule : " + ruleNode.getRule());
+
+		//  1. 룰 동작
 		JSONObject target = new JSONObject();
 		if (ruleNode.getRuleType().equals(RuleType.CREATE)){
 			if(ruleNode.getTransactionType().equals(TransactionType.CREATE)){
@@ -52,7 +56,8 @@ public class TransformEngine{
 		} else if (ruleNode.getRuleType().equals(RuleType.TRANS)) {
 			if(ruleNode.getTransactionType().equals(TransactionType.COPY)){
 				if(source.get(ruleNode.getSourceReferenceNm()) == null){
-
+					// source에 데이터가 없는 경우.
+					throw new IllegalArgumentException("소스의 데이터에 " + ruleNode.getSourceReferenceNm() + " 가 없습니다.");
 				}else{
 					target.put(ruleNode.getTargetElementNm(), source.get(ruleNode.getSourceReferenceNm()));
 				}
@@ -76,7 +81,11 @@ public class TransformEngine{
 				}
 
 				if(isNullData){
-					target.put(ruleNode.getTargetElementNm(), argumentParam.get(1).replaceAll("'", ""));
+					if(argumentParam.get(1).contains("'")){
+						target.put(ruleNode.getTargetElementNm(), argumentParam.get(1).replaceAll("'", ""));
+					}else{
+						target.put(ruleNode.getTargetElementNm(), source.get(argumentParam.get(1)));
+					}
 				}else{
 					target.put(ruleNode.getTargetElementNm(), source.get(argumentParam.get(0)));
 				}
@@ -90,9 +99,7 @@ public class TransformEngine{
 					throw new JSONException("Execute Rule 중에 예상치 못한 함수가 들어왔습니다. Split은 반드시 파라미터가 2개 혹은 3개여야합니다.");
 				}
 			}else if(ruleNode.getTransactionType().equals(TransactionType.MERGE)){
-				System.out.println("ruleNode.getSourceReferenceNm() : " + ruleNode.getSourceReferenceNm());
 				List<String> argumentParam = this.extractMultipleValues(ruleNode.getSourceReferenceNm());
-				System.out.println(" MERGE RULE !!! argumentParam : " + argumentParam.size());
 
 				String mergedStr = "";
 				for(String eachText : argumentParam){
@@ -104,16 +111,59 @@ public class TransformEngine{
 						mergedStr = mergedStr + TransformUtil.getNestedValueInJson(source, eachText);
 					}
 				}
-				System.out.println(" vVAL : " + mergedStr);
 
 				target.put(ruleNode.getTargetElementNm(), mergedStr);
 			}else if(ruleNode.getTransactionType().equals(TransactionType.UUID)){
 				target.put(ruleNode.getTargetElementNm(), UUID.randomUUID());
+			}else if(ruleNode.getTransactionType().equals(TransactionType.DATE)){
+				List<String> argumentParam = this.extractMultipleValues(ruleNode.getSourceReferenceNm());
+				if(argumentParam.size() != 3){
+					throw new IllegalArgumentException(" 룰 " + ruleNode.getRule() + " 의 파라미터가 누락되어 컨버전에 실패하였습니다.");
+				}
+				String sourceDate = source.getString(argumentParam.get(0));
+				String sourceDateType = argumentParam.get(1).replaceAll("'", "");
+				String targetDateType = argumentParam.get(2).replaceAll("'", "");
+				String convertedDate = TransformUtil.convertDateTimeSourceToTarget(sourceDate, sourceDateType, targetDateType);
+
+				target.put(ruleNode.getTargetElementNm(), convertedDate);
+			}else if(ruleNode.getTransactionType().equals(TransactionType.CASE)){
+				List<String> argumentParam = this.extractMultipleValues(ruleNode.getSourceReferenceNm());
+				String argument = source.getString(argumentParam.get(0));
+				int argumentSize= argumentParam.size();
+				if(argumentSize % 2 != 1 || argumentSize == 1){
+					throw new IllegalArgumentException("[ERR] CASE문은 항상 샘플-조건-결과 순으로 나열되어야합니다.");
+				}
+
+				boolean hasAnswer = false;
+				for(int arg = 1; argumentSize > arg; arg=arg+2){
+					if(argumentParam.get(arg).replaceAll("'", "").equals(argument)){
+						if(argumentParam.get(arg+1).contains("'")){
+							target.put(ruleNode.getTargetElementNm(), argumentParam.get(arg+1).replaceAll("'", "") );
+						}else{
+							target.put(ruleNode.getTargetElementNm(), source.get(argumentParam.get(arg+1)));
+						}
+						hasAnswer = true;
+						break;
+					}
+				}
+
+				if(!hasAnswer){
+					throw new IllegalArgumentException("[ERR] CASE문에 정의되지 않은 값이 입력되어 오류가 발생하였습니다.");
+				}
+
 			}
 		} else if (ruleNode.getRuleType().equals(RuleType.CREATE_ARRAY)){
 			String targetText = RuleUtils.getArrayTypeObjectNameTarget(ruleNode.getRule());
 			target.putOpt(targetText, new JSONArray());
 		}
+
+		// 2. 룰 중에 key 값은 따로 모아놓기
+		if(ruleNode.isIdentifierNode()){
+			String answer = target.getString(ruleNode.getTargetElementNm());
+			setIdentifierGenerator(source.getString("resourcetype"), ruleNode.getSourceReferenceNm(), answer);
+		}
+
+		System.out.println("[DEV] ??!!! ");
 		return target;
 	}
 
@@ -324,11 +374,7 @@ public class TransformEngine{
 			IBaseResource resource = context.newJsonParser().parseResource(retJsonObject.toString());
 
 			// 3. 변환의 대한 키 생성
-			LinkedHashSet<String> identifierSet = MapperUtils.createIdentifierMap(ruleNodeList);
-			if(identifierSet.size() >= 1 && ResourceNameSummaryCode.isCanbeSummaryName(resource.fhirType())){
-				String id = TransformUtil.createResourceId(resource.fhirType(), identifierSet, sourceObj);
-				resource.setId(id);
-			}
+			resource.setId(generatorIdentifierForResource(resource.fhirType()));
 
 			ourLog.info(" Operation Result : " + retJsonObject.toString());
 
@@ -351,6 +397,56 @@ public class TransformEngine{
 			}
 		}
 		return values;
+	}
+
+	// 2023. 11. 28. 키관리의 유동화 처리
+	class IdentifierGeneratorForResource{
+
+		private LinkedHashMap<String, String> identifierMap;
+
+		public IdentifierGeneratorForResource(){
+			identifierMap = new LinkedHashMap<>();
+		}
+
+		public void addKeyAndValue(String identifierName, String value){
+			identifierMap.put(identifierName, value);
+		}
+
+		public LinkedHashMap<String, String> getIdentifierMap() {
+			return identifierMap;
+		}
+	}
+
+	Map<String, IdentifierGeneratorForResource> keyGeneratorForResourceList = new HashMap<>();
+
+	// ID를 각 Node별로 순회 중 구성한다
+	public void setIdentifierGenerator(String resourceType, String identifierName, String value){
+		IdentifierGeneratorForResource targetRes = keyGeneratorForResourceList.get(resourceType);
+		if(targetRes == null){
+			targetRes = new IdentifierGeneratorForResource();
+		}
+		targetRes.addKeyAndValue(identifierName, value);
+		keyGeneratorForResourceList.put(resourceType, targetRes);
+	}
+
+	// 리소스의 ID를 생성하는 조건을 반환한다.
+	public Set<String> getResourceIdentifierSet(String resourceType){
+		return keyGeneratorForResourceList.get(resourceType).getIdentifierMap().keySet();
+	}
+
+	// 리소스의 ID를 생성한다.
+	public String generatorIdentifierForResource(String resourceType){
+		LinkedHashMap<String, String> map = keyGeneratorForResourceList.get(resourceType).getIdentifierMap();
+		String retIdentifier = ResourceNameSummaryCode.findSummaryName(resourceType).getSummaryName();
+		for (String keyElement : map.keySet()) {
+			if(StringUtils.isBlank(retIdentifier)){
+				retIdentifier = map.get(keyElement);
+			}else{
+				retIdentifier = retIdentifier + "." + map.get(keyElement);
+			}
+		}
+
+		return retIdentifier;
 	}
 
 }

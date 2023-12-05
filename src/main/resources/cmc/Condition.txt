@@ -1,0 +1,25 @@
+* resourceType='Condition'
+* id=(KEY)MERGE(ord_dd, '.', ord_dept_cd, '.', pid, '.', diag_no)
+* meta
+ * (profile).profile
+  * 'http://connectdtx.kr/fhir/StructureDefinition/connectdtx-condition'
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-condition-chief-complaint'
+* identifier
+ * system=Organization_id.oid
+ * value=MERGE(ord_dd, '.', ord_dept_cd, '.', pid, '.', diag_no)
+* category
+ * (coding).coding
+  * system='http://www.hl7korea.or.kr/fhir/krcore/CodeSystem/krcore-condition-category-types'
+  * code='주호소'
+* code
+ * (coding).coding
+  * system='http://www.hl7korea.or.kr/CodeSystem/kostat-kcd-8'
+  * code=kcd_cd
+  * display=diag_eng_nm
+* subject
+ * reference=MERGE('Patient/', Patient_id)
+* encounter
+ * reference=MERGE('Encounter/',Encounter_id)
+* recordedDate=DATE(dsch_dd, 'yyyyMMdd', 'yyyy-MM-dd')
+* recorder
+ * reference=MERGE('PractitionerRole/',PractitionerRole_id)

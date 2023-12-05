@@ -1,5 +1,5 @@
 * resourceType='Patient'
-* id=(KEY)id
+* id=(KEY)MERGE(Organization_id, '.', pid)
 * meta
  * (profile).profile
   * 'http://connectdtx.kr/fhir/StructureDefinition/connectdtx-patient'
@@ -22,12 +22,12 @@
  * text=hng_nm
  * given=eng_nm
 * (telecom).telecom
- * system=NULLTHEN(telType, 'phone')
+ * system=NVL(telType, 'phone')
  * value=telno
-* gender=sex_cd
-* birthDate=brth_dd
+* gender=CASE(sex_cd, 'M', 'male', 'F', 'female', 'U', 'unknown')
+* birthDate=DATE(brth_dd, 'yyyyMMdd', 'yyyy-MM-dd')
 * (address).address
  * text=detl_addr
  * postalCode=zipcd
 * managingOrganization
- * reference=(KEY)organization_Id
+ * reference=MERGE('Organization/' ,Organization_id)

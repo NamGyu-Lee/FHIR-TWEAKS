@@ -2,19 +2,19 @@ package ca.uhn.fhir.jpa.starter.transfor.code;
 
 public enum ResourceNameSummaryCode {
 
-	PATIENT("Patient", "PAT"),
+	ORGANIZATION("Organization", ""),
+	PATIENT("Patient", ""),
 	PRACTITIONER("Practitioner", "PRAT"),
 	PRACTITIONERROLE("PractitionerRole", "PROL"),
-	ENCOUNTER("PractitionerRole", "PROL"),
-	CONDITION("PractitionerRole", "PROL"),
-	MEDICATION("PractitionerRole", "MED"),
-	MEDICATIONREQUEST("PractitionerRole", "MEDR"),
+	ENCOUNTER("Encounter", "ENC"),
+	CONDITION("Condition", "PROL"),
+	MEDICATION("Medication", "MED"),
+	MEDICATIONREQUEST("MedicationRequest", "MEDR"),
 	DIAGNOSTICREPORT("DiagnosticReport", "DR"),
-	OBSERVATION("Observation", "OB"),
+	OBSERVATION("Observation", "OBV"),
 	PROCEDURE("Procedure", "PD"),
 	ALLERGY("AllergyIntolerance", "ALG"),
 	DEVICE("Device", "DV"),
-	ORGANIZATION("PractitionerRole", "OG"),
 	IMMUNIZATION("Immunization", "IMU"),
 	IMAGINGSTUDY("ImagingStudy", "IMGS"),
 	;

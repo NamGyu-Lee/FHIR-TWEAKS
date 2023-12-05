@@ -4,9 +4,7 @@ import ca.uhn.fhir.jpa.starter.transfor.base.code.RuleType;
 import ca.uhn.fhir.jpa.starter.transfor.base.code.TransactionType;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.RuleNode;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
+import java.util.*;
 
 /** StructureMap 을 대체 할 수 있는 Map 을 구성하기위한 기준정의를 Node로 수행
  *  각 Node는 하나의 룰을 관리.
@@ -82,23 +80,6 @@ public class MapperUtils {
 			beforeNode = ruleNode;
 		}
 		return ruleNodes;
-	}
-
-	/**
-	 * 2023. 11. 27. 룰 중에 Id 조건인 것들만 반환해준다.
-	 *
-	 * @param searchRule the search rule
-	 * @return the linked hash set
-	 */
-	public static LinkedHashSet<String> createIdentifierMap(List<RuleNode> searchRule){
-		// TODO. Dept가 내려가는 경우 어떻게 핸들링???
-		LinkedHashSet<String> identifierLinkedSet = new LinkedHashSet<>();
-		for(RuleNode eachNode : searchRule){
-			if(eachNode.isIdentifierNode()){
-				identifierLinkedSet.add(eachNode.getSourceReferenceNm());
-			}
-		}
-		return identifierLinkedSet;
 	}
 
 	public static void printRuleTextInNodeTree(int startLevel, RuleNode nd){

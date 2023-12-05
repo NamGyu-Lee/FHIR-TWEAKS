@@ -15,8 +15,10 @@ public enum TransactionType {
 	MERGE("^\\w+\\s*=\\s*MERGE\\(.*\\)$"),
 	UUID("^\\w+\\s*=\\s*UUID\\(.*\\)$"),
 	REFERENCE("(\\w+)=REF\\((\\w+), \\$(\\w+)\\)"),
+	DATE("^\\w+=DATE\\(.*\\)$"),
 	CREATE_SINGLESTRING("'.+?'"),
-	COPY_WITH_DEFAULT("^\\w+=NULLTHEN\\(\\w+\\s*,\\s*'.*'\\)$"),
+	COPY_WITH_DEFAULT("^\\w+=NVL\\(.*\\)$"),
+	CASE("^\\w+=CASE\\(.*\\)$"),
 	COPY_STRING(".*='([^']*)'"),
 	COPY(".*=.*"),
 	CREATE("^[^(=]*$")

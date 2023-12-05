@@ -206,13 +206,14 @@ service:
           valueset: true
           searchparameter: true
   validation:
-    enabled: true
+    enabled: false
     remote:
       server:
         enabled : true
         url: http://122.153.160.23:6010/fhir
   transfor:
     enabled: true
+    type: engine
     target: cmc
     logging: true
     ignorenoencounter: true

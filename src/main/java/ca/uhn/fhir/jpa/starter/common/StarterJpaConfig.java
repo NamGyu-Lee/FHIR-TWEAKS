@@ -56,6 +56,7 @@ import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationRemoteConfigPro
 import ca.uhn.fhir.jpa.starter.terminology.config.TerminologySearchConfigProperties;
 import ca.uhn.fhir.jpa.starter.terminology.operation.ImplementGuideOperationProvider;
 import ca.uhn.fhir.jpa.starter.terminology.paging.TerminologyPagingProvider;
+import ca.uhn.fhir.jpa.starter.validation.support.DevInMemoryTerminologyServerValidationSupport;
 import ca.uhn.fhir.jpa.starter.validation.support.DevRemoteTerminologyServiceValidationSupport;
 import ca.uhn.fhir.jpa.starter.util.EnvironmentHelper;
 import ca.uhn.fhir.jpa.subscription.util.SubscriptionDebugLogInterceptor;
@@ -490,50 +491,54 @@ public class StarterJpaConfig {
 			if (customValidationRemoteConfigProperties.isRemoteTerminologyYn()) {
 				// 해당 서버가 별개의 Remote Terminology 서버를 바라보도록 구성
 				ourLog.info(" > Remote Terminology Server Enabled.. Server URL : " + customValidationRemoteConfigProperties.getRemoteURL());
-				DevRemoteTerminologyServiceValidationSupport remoteTermSvc = new DevRemoteTerminologyServiceValidationSupport(ctx);
-				remoteTermSvc.setBaseUrl(customValidationRemoteConfigProperties.getRemoteURL()); // healthall terminology
 
+				// Reomte 를 활용하는 경우 timeout을 조정한다.
+				// ValueSet 등의 fetch 시 너무 느리게 반환 등 이슈
+				ca.uhn.fhir.rest.client.api.IRestfulClientFactory factory = ctx.getRestfulClientFactory();
+				factory.setSocketTimeout(10000000);
+				factory.setConnectionRequestTimeout(10000000);
+				factory.setConnectTimeout(10000000);
+				ctx.setRestfulClientFactory(factory);
+
+				DevRemoteTerminologyServiceValidationSupport remoteTermSvc = new DevRemoteTerminologyServiceValidationSupport(ctx);
+				remoteTermSvc.setBaseUrl(customValidationRemoteConfigProperties.getRemoteURL());
 				validationSupportChain = new ValidationSupportChain(
 					// 1. 기본적인 FHIR의 Support 구성
-					new DefaultProfileValidationSupport(ctx)
-					, new CommonCodeSystemsTerminologyService(ctx)
-					, new SnapshotGeneratingValidationSupport(ctx)
-					// 2. 로컬에만 있는 코드의 경우 적용
-					, new InMemoryTerminologyServerValidationSupport(ctx)
+					//, new CommonCodeSystemsTerminologyService(ctx)
+					//, new SnapshotGeneratingValidationSupport(ctx)
 					// 3. IG와 Terminology 처리
-					, prePopulatedSupport
-					, remoteTermSvc
+					// 2. 로컬에만 있는 코드의 경우 적용
+				   remoteTermSvc
+				   ,new DefaultProfileValidationSupport(ctx)
+					,new DevInMemoryTerminologyServerValidationSupport(ctx)
+					,prePopulatedSupport
+					,new UnknownCodeSystemWarningValidationSupport(ctx)
 				);
+
 			} else {
-				validationSupportChain = new ValidationSupportChain(
-					// 1. 기본적인 FHIR의 Support 구성
-					new DefaultProfileValidationSupport(ctx)
-					, new CommonCodeSystemsTerminologyService(ctx)
-					, new SnapshotGeneratingValidationSupport(ctx)
-					// 2. 로컬에만 있는 코드의 경우 적용
-					, new InMemoryTerminologyServerValidationSupport(ctx)
-					// 3. IG와 Terminology 처리
-					, prePopulatedSupport
+					validationSupportChain = new ValidationSupportChain(
+					 new DefaultProfileValidationSupport(ctx)
+					,new DevInMemoryTerminologyServerValidationSupport(ctx)
+					,prePopulatedSupport
+					,new UnknownCodeSystemWarningValidationSupport(ctx)
 				);
 			}
 
 			validatorModule = new FhirInstanceValidator(validationSupportChain);
 			// 2. Validator 등록
-			{
-				// 2.1. Request Validating Interceptor 생성
-				RequestValidatingInterceptor requestInterceptor = new RequestValidatingInterceptor();
+			// 2.1. Request Validating Interceptor 생성
+			RequestValidatingInterceptor requestInterceptor = new RequestValidatingInterceptor();
 
-				if (validatorModule != null) {
-					requestInterceptor.addValidatorModule(validatorModule);
-				}
-
-				// 2.2. Interceptor 세부 설정
-				//requestInterceptor.setFailOnSeverity(ResultSeverityEnum.ERROR);
-				requestInterceptor.setAddResponseHeaderOnSeverity(ResultSeverityEnum.INFORMATION);
-				//requestInterceptor.setResponseHeaderValue("${severity} ${line}: ${message}");
-				requestInterceptor.setResponseHeaderValueNoIssues("No issues detected");
-				fhirServer.registerInterceptor(requestInterceptor);
+			if (validatorModule != null) {
+				requestInterceptor.addValidatorModule(validatorModule);
 			}
+
+			// 2.2. Interceptor 세부 설정
+			//requestInterceptor.setFailOnSeverity(ResultSeverityEnum.ERROR);
+			requestInterceptor.setAddResponseHeaderOnSeverity(ResultSeverityEnum.INFORMATION);
+			//requestInterceptor.setResponseHeaderValue("${severity} ${line}: ${message}");
+			requestInterceptor.setResponseHeaderValueNoIssues("No issues detected");
+			fhirServer.registerInterceptor(requestInterceptor);
 
 			ourLog.info(" > Instance Based Customed Validation Service Configuration End");
 		}else{

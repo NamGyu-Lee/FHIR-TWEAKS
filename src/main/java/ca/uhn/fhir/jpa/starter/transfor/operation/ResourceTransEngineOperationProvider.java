@@ -6,6 +6,7 @@ import ca.uhn.fhir.jpa.starter.transfor.base.core.TransformEngine;
 import ca.uhn.fhir.jpa.starter.transfor.code.ResourceReferenceCode;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
 import ca.uhn.fhir.jpa.starter.transfor.dto.base.ReferenceDataMatcher;
+import ca.uhn.fhir.jpa.starter.transfor.dto.base.ReferenceDataSet;
 import ca.uhn.fhir.jpa.starter.transfor.util.TransformUtil;
 import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationRemoteConfigProperties;
 import ca.uhn.fhir.rest.annotation.Operation;
@@ -15,9 +16,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.commons.io.IOUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.model.Organization;
-import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.*;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -48,6 +47,11 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 	public ResourceTransEngineOperationProvider(FhirContext fn){
 		this.fn = fn;
 		transformEngine = new TransformEngine(customValidationRemoteConfigProperties);
+
+		// 캐시처리
+		Map<String, String> noSearchArg = new HashMap<>();
+		noSearchArg.put("Don't Search Main Volumns", "-");
+		referenceDataMatcher.inputMappingData("Standard-Ref", noSearchArg, new HashMap<>());
 	}
 
 	private TransformDataOperationConfigProperties transformDataOperationConfigProperties;
@@ -84,22 +88,27 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 
 			// 실질적인 변환 부분
 			// 해당 영역부터 개별 대상자로 한정
-			// 1. reference 구성
-			Map<String, String> noSearchArg = new HashMap<>();
-			noSearchArg.put("Don't Search Main Volumns", "9999999");
-			referenceDataMatcher.inputMappingData("Standard-Ref", noSearchArg, new HashMap<>());
+			referenceDataMatcher.printAllReference("Standard-Ref");
 
 			// 2. 생성 시작
+			Bundle bundle = new Bundle();
 			while(sortedQueue.size() != 0){
 				Map.Entry<String, JsonElement> entry = sortedQueue.poll();
-				System.out.println(entry);
-				this.createResource(entry);
+				List<IBaseResource> baseResourceList = this.createResource(entry);
+				for(IBaseResource resource : baseResourceList){
+					Bundle.BundleEntryComponent comp = new Bundle.BundleEntryComponent();
+					comp.setResource((Resource)resource);
+					bundle.addEntry(comp);
+				}
 			}
+
+			retMessage = fn.newJsonParser().encodeResourceToString(bundle);
 
 		}catch(Exception e){
 			e.printStackTrace();
 			retMessage = e.getMessage();
 		}finally{
+			theResponse.setCharacterEncoding("UTF-8");
 			theResponse.setContentType("text/plain");
 			theResponse.getWriter().write(retMessage);
 			theResponse.getWriter().close();
@@ -119,66 +128,50 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 				JSONObject sourceObject = new JSONObject(eachRowJsonObj.toString());
 
 				// 1. 매핑 전 사전준비
-				// 맵 조회
-				String mapType = sourceObject.getString("mapType");
+				//  1) 맵 조회
+				String mapType = sourceObject.getString("maptype");
 				String mapScript = "";
 				if(mapType == null){
 					ourLog.error("[ERR] 해당 리소스에 MapType이 없습니다.");
-					throw new IllegalArgumentException("[ERR] 해당 리소스에 MapType이 없습니다.");
+					continue; // 테스트용.
+					//throw new IllegalArgumentException("[ERR] 해당 리소스에 MapType이 없습니다.");
 				}else{
 					mapScript = TransformUtil.getMap(mapType);
 				}
 
-				// 리소스별 레퍼런스 추가
-				// Practitioner, PractitionerRole, Organization 은 reference 가 Base에 기반한다
-				ResourceReferenceCode referenceCode = ResourceReferenceCode.searchResourceReferenceCodeWithContainResName(mapType);
-				if(referenceCode.getBaseType().equals("Basement")){
-					// Basement 등록
-					if(referenceCode.getResourceName().equals("Organization")){
-						// Organization 은 어떠한 ref도 필요없음.
-					}else if(referenceCode.getResourceName().equals("PractitionerRole")){
-						// PractitionerRole 은 Practitioner 가 필요하다.
-						String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("Organization").getReference();
-						sourceObject.put("Organization_id", organizationId);
-						String practitionerId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("PRCT." + organizationId + "." + sourceObject.get("ord_dr_id")).getReference();
-						sourceObject.put("Practitioner_id", practitionerId);
-					}else{
-						String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("Organization").getReference();
-						sourceObject.put("Organization_id", organizationId);
-					}
-				}else if(referenceCode.getBaseType().equals("Header")){
-					// Header 기준으로 등록
-					String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("Organization").getReference();
-					String patientId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("PAT." + organizationId + "." + sourceObject.get("pid")).getReference();
-					String practitionerRoleId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("PROL." + organizationId + "." + sourceObject.get("ord_dr_id")).getReference();
-					String practitionerId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("PRCT." + organizationId + "." + sourceObject.get("ord_dr_id")).getReference();
-
-				}else if(referenceCode.getBaseType().equals("Others")){
-					// 리소스 서치
+				//  2) 리소스별 필요 레퍼런스 추가
+				try {
+					sourceObject = this.settingSourceWithReferenceSet(mapType, sourceObject);
+				}catch(IllegalArgumentException | JSONException e){
+					e.printStackTrace();
+					loggingInDebugMode("[ERR] 해당 래퍼런스 조회 과정에서 오류가 발생하였습니다. " + sourceObject);
+					loggingInDebugMode("   ㄴ " + mapType);
+					continue;
 				}
 
-				// Encounter는 reference가 Patient, PractitionerRole 등의 기본구조에서 파생한다
-
-				// 기타 모든 리소스는 reference가 그 외 리소스에서 파생한다.
+				System.out.println("----");
+				System.out.println(" > [DEV] Reference 추가된 Source Object : " + sourceObject.toString());
+				System.out.println("----");
 
 				// 2. 매핑 수행
-				// Resource 생성
+				//  1) Resource 생성
 				IBaseResource resource = transformEngine.transformDataToResource(mapScript, sourceObject);
 
-				// Resource 별 Reference 등록
-				if(resource.fhirType().equals("Organization")){
-					Organization organization = (Organization) resource;
-					referenceDataMatcher.setReference("Standard-Ref", "Organization", new Reference(organization.getId()));
-					referenceDataMatcher.setReference("Standard-Ref", "Organization-oid", new Reference(organization.getIdentifier().get(0).getValue()));
-				}else if(resource.fhirType().equals("Patient")){
-					Patient patient = (Patient) resource;
-					referenceDataMatcher.setReference("Standard-Ref", "Patient" , new Reference(patient.getId()));
-				}
-
 				// 3. 생성
+				System.out.println("----");
+				System.out.println(" > [DEV] Created THis Resource : " + this.getContext().newJsonParser().encodeResourceToString(resource));
+				System.out.println("----");
+
+				// 4. 리소스별 레퍼런스 등록
+				try {
+					boolean bindReferenceSuccessYn = this.bindReference(resource, sourceObject);
+				}catch(IllegalArgumentException | JSONException e){
+					loggingInDebugMode(" 래퍼런스 생성 과정에서 오류가 발생하였습니다. ");
+				}
 
 				retResourceList.add(resource);
 			}catch (JSONException e){
+				e.printStackTrace();
 			}
 		}
 
@@ -186,5 +179,193 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 		return retResourceList;
 	}
 
+	/**
+	 * 2023. 11. 28. 데이터를 생성하기 전 Reference 를 등록한다.
+	 * Reference 는 Organization - Basement(Patient, Practitioner..) - Header(Encounter) - OTHERS 단위로 나뉜다.
+	 * @param mapType      the map type
+	 * @param sourceObject the source object
+	 * @return the reference set
+	 * @throws JSONException the json exception
+	 */
+	public JSONObject settingSourceWithReferenceSet(String mapType, JSONObject sourceObject) throws JSONException {
+			try{
+				System.out.println("[DEV] mapType : " + mapType);
+				ResourceReferenceCode referenceCode = ResourceReferenceCode.searchResourceReferenceCodeWithContainResName(mapType);
 
+				System.out.println("[DEV] referenceCode.getResourceName : " + referenceCode.getResourceName());
+				System.out.println("[DEV] referenceCode.getBaseType : " + referenceCode.getBaseType());
+
+				if (referenceCode.getBaseType().equals("Organization")) {
+					// Organization 은 아무런 Reference 도 요구되지 않는다.
+				} else if (referenceCode.getBaseType().equals("Basement")) {
+					if (referenceCode.getResourceName().equals("Patient")) {
+						// 키 조회
+						LinkedHashSet<String> searchKeyPartSet = new LinkedHashSet<>();
+						// TODO transformEngine.getResourceIdentifierSet("Organization"); 를 활용해서 사용자가 정의한 Map 기준대로 Key 조회해서 매핑하기
+						searchKeyPartSet.add("inst_cd");
+						String searchId = TransformUtil.createResourceId("Organization", searchKeyPartSet, sourceObject);
+						String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId).getReference();
+						sourceObject.put("Organization_id", organizationId);
+
+					} else if (referenceCode.getResourceName().equals("PractitionerRole")) {
+						LinkedHashSet<String> searchKeyPartSet = new LinkedHashSet<>();
+						searchKeyPartSet.add("inst_cd");
+						String searchId = TransformUtil.createResourceId("Organization", searchKeyPartSet, sourceObject);
+						String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId).getReference();
+						sourceObject.put("Organization_id", organizationId);
+
+						String organizationOId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId + ".oid").getReference();
+						sourceObject.put("Organization_id.oid", organizationOId);
+
+						searchKeyPartSet.clear();
+						searchKeyPartSet.add("Organization_id");
+						searchKeyPartSet.add("ord_dr_id");
+						String searchPractitionerId = TransformUtil.createResourceId("Practitioner", searchKeyPartSet, sourceObject);
+
+						System.out.println("searchPractitionerId : " + searchPractitionerId);
+						String practitionerId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchPractitionerId).getReference();
+						System.out.println("practitionerId : " + practitionerId);
+
+						sourceObject.put("Practitioner_id", practitionerId);
+
+					} else if (referenceCode.getResourceName().equals("Practitioner")) {
+						LinkedHashSet<String> searchKeyPartSet = new LinkedHashSet<>();
+						searchKeyPartSet.add("inst_cd");
+						String searchId = TransformUtil.createResourceId("Organization", searchKeyPartSet, sourceObject);
+
+						System.out.println("searchId : " + searchId);
+						String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId).getReference();
+
+						System.out.println("organizationId : " + organizationId);
+						sourceObject.put("Organization_id", organizationId);
+
+						String organizationOId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId + ".oid").getReference();
+						sourceObject.put("Organization_id.oid", organizationOId);
+					}
+				} else if (referenceCode.getBaseType().equals("Header")) {
+					// Header 기준으로 등록
+					LinkedHashSet<String> searchKeyPartSet = new LinkedHashSet<>();
+					searchKeyPartSet.add("inst_cd");
+					String searchId = TransformUtil.createResourceId("Organization", searchKeyPartSet, sourceObject);
+					String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId).getReference();
+					sourceObject.put("Organization_id", organizationId);
+
+					String organizationOId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId+".oid").getReference();
+					sourceObject.put("Organization_id.oid", organizationOId);
+
+					searchKeyPartSet.clear();
+					searchKeyPartSet.add("Organization_id");
+					searchKeyPartSet.add("pid");
+					searchId = TransformUtil.createResourceId("Patient", searchKeyPartSet, sourceObject);
+					System.out.println("PAT SEARCH : " + searchId);
+					String patientId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId).getReference();
+					System.out.println("PAT SEARCHED : " + patientId);
+					sourceObject.put("Patient_id", patientId);
+
+					searchKeyPartSet.clear();
+					searchKeyPartSet.add("Organization_id");
+					searchKeyPartSet.add("ord_dr_id");
+					searchId = TransformUtil.createResourceId("PractitionerRole", searchKeyPartSet, sourceObject);
+					String practitionerRoleId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId).getReference();
+					sourceObject.put("PractitionerRole_id", practitionerRoleId);
+
+					searchKeyPartSet.clear();
+					searchKeyPartSet.add("Organization_id");
+					searchKeyPartSet.add("ord_dr_id");
+					searchId = TransformUtil.createResourceId("Practitioner", searchKeyPartSet, sourceObject);
+					String practitionerId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId).getReference();
+					sourceObject.put("Practitioner_id", practitionerId);
+
+				} else if (referenceCode.getBaseType().equals("Others")) {
+					// 리소스 서치
+					Map<String, String> identifierSet = new HashMap<>();
+					identifierSet.put("inst_cd", sourceObject.getString("inst_cd"));
+					identifierSet.put("pid", sourceObject.getString("pid"));
+					identifierSet.put("ord_dd", sourceObject.getString("ord_dd"));
+					identifierSet.put("ord_dept_cd", sourceObject.getString("ord_dept_cd"));
+					identifierSet.put("ord_type_cd", sourceObject.getString("ord_type_cd"));
+					identifierSet.put("ord_dr_id", sourceObject.getString("ord_dr_id"));
+					identifierSet.put("cret_no", sourceObject.getString("cret_no"));
+					ReferenceDataSet ds = referenceDataMatcher.searchMapperWithMapType(identifierSet);
+					if (ds == null) {
+						if (transformDataOperationConfigProperties.isTransforIgnoreHasNoEncounter()) {
+							loggingInDebugMode(" > 해당 리소스의 Encounter 를 찾을 수 없어 해당 데이터는 생성이 생략되었습니다. " + identifierSet);
+						} else {
+							throw new IllegalArgumentException(" > 해당 리소스의 Encounter를 찾을 수 없어 오류가 발생하였습니다.");
+						}
+					}else{
+						sourceObject.put("Organization_id", ds.getReferenceList().get("Organization_id").getReference());
+						sourceObject.put("Organization_id.oid", ds.getReferenceList().get("Organization_id.oid").getReference());
+						sourceObject.put("Patient_id", ds.getReferenceList().get("Patient_id").getReference());
+						sourceObject.put("PractitionerRole_id", ds.getReferenceList().get("PractitionerRole_id").getReference());
+						sourceObject.put("Practitioner_id", ds.getReferenceList().get("Practitioner_id").getReference());
+						sourceObject.put("Encounter_id", ds.getReferenceList().get("Encounter_id").getReference());
+					}
+				}
+
+				return sourceObject;
+		}catch(NullPointerException e){
+			e.printStackTrace();
+			throw new IllegalArgumentException("해당 리소스가 존재하지 않습니다. ");
+		}
+	}
+
+	/**
+	 *  2023. 11. 28. Reference 를 Bean에 등록한다.
+	 * @return the boolean
+	 */
+	public boolean bindReference(IBaseResource baseResource, JSONObject jsonObject) throws JSONException{
+		System.out.println(" >>> BIND Reference Type : " + baseResource.fhirType());
+
+		// basement
+		if(baseResource.fhirType().equals("Organization")){
+			Organization organization = (Organization) baseResource;
+			// TODO. 여러병원의 정보를 하나의 Convert가 수행할때는 이 기준을 수정해야..
+			LinkedHashSet<String> searchKeyPartSet = new LinkedHashSet<>();
+			searchKeyPartSet.add("inst_cd");
+			String searchId = TransformUtil.createResourceId("Organization", searchKeyPartSet, jsonObject);
+
+			referenceDataMatcher.setReference("Standard-Ref", searchId, new Reference(organization.getId()));
+			referenceDataMatcher.setReference("Standard-Ref", searchId + ".oid", new Reference(organization.getIdentifier().get(0).getValue()));
+		}else if(baseResource.fhirType().equals("Patient")){
+			Patient patient = (Patient) baseResource;
+			referenceDataMatcher.setReference("Standard-Ref", patient.getIdPart() , new Reference(patient.getId()));
+
+		}else if(baseResource.fhirType().equals("Practitioner")){
+			Practitioner practitioner = (Practitioner) baseResource;
+			referenceDataMatcher.setReference("Standard-Ref", practitioner.getId(), new Reference(practitioner.getId()));
+
+		}else if(baseResource.fhirType().equals("PractitionerRole")){
+			PractitionerRole practitionerRole = (PractitionerRole) baseResource;
+			referenceDataMatcher.setReference("Standard-Ref", practitionerRole.getId(), new Reference(practitionerRole.getId()));
+
+		}else if(baseResource.fhirType().equals("Encounter")){
+			Encounter encounter = (Encounter) baseResource;
+			LinkedHashMap<String, String> identifierSet = new LinkedHashMap<>();
+			identifierSet.put("inst_cd", jsonObject.getString("inst_cd"));
+			identifierSet.put("pid", jsonObject.getString("pid"));
+			identifierSet.put("ord_dd", jsonObject.getString("ord_dd"));
+			identifierSet.put("ord_dept_cd", jsonObject.getString("ord_dept_cd"));
+			identifierSet.put("ord_type_cd", jsonObject.getString("ord_type_cd"));
+			identifierSet.put("ord_dr_id", jsonObject.getString("ord_dr_id"));
+			identifierSet.put("cret_no", jsonObject.getString("cret_no"));
+
+			Map<String, Reference> encounterIncludedRefSet = new HashMap<>();
+			encounterIncludedRefSet.put("Organization_id", new Reference(jsonObject.getString("Organization_id")));
+			encounterIncludedRefSet.put("Organization_id.oid", new Reference(jsonObject.getString("Organization_id.oid")));
+			encounterIncludedRefSet.put("Patient_id", new Reference(jsonObject.getString("Patient_id")));
+			encounterIncludedRefSet.put("Practitioner_id", new Reference(jsonObject.getString("Practitioner_id")));
+			encounterIncludedRefSet.put("PractitionerRole_id", new Reference(jsonObject.getString("PractitionerRole_id")));
+
+			encounterIncludedRefSet.put("Encounter_id", new Reference(encounter.getId()));
+			referenceDataMatcher.inputMappingData(encounter.getId(), identifierSet, encounterIncludedRefSet);
+		}
+		return true;
+	}
+
+	private void loggingInDebugMode(String arg){
+		if(transformDataOperationConfigProperties.isTransforLogging()){
+			ourLog.info(arg);
+		}
+	}
 }

@@ -1,20 +1,41 @@
-version: "3"
+version: "3.8"
 services:
+  nginx:
+    image: nginx:stable
+    restart: always
+    ports:
+      - target : 80
+        published: 80
+        protocol: tcp
+    environment:
+      - TZ=Asia/Seoul
+    volumes:
+      - /product/nginx/logs:/var/log/nginx/
+      - /product/nginx/conf/nginx.conf:/etc/nginx/nginx.conf
   hapi-fhir-jpaserver-start:
     build: .
     container_name: hapi-fhir-jpaserver-start
     restart: on-failure
     ports:
-      - "8080:8080"
+      - target: 8080
+        published: 10001
+        protocol: tcp
+    configs:
+      - source: hapi
+        target: /data/hapi/application.yaml
+    volumes:
+      - /product/ig:/app/ig/
+      - /product/fhir2/initSetting:/data/hapi
+      - /product/fhir2/theme:/theme
+    environment:
+      SPRING_CONFIG_LOCATION: 'file:///data/hapi/application.yaml'
   hapi-fhir-postgres:
     image: postgres:13-alpine
     container_name: hapi-fhir-postgres
     restart: always
     environment:
-      POSTGRES_DB: "hapi"
-      POSTGRES_USER: "admin"
-      POSTGRES_PASSWORD: "admin"
+      POSTGRES_DB: "hapi_dstu3"
+      POSTGRES_USER: "DTxUser"
+      POSTGRES_PASSWORD: "Khmc1803!"
     volumes:
-      - hapi-fhir-postgres:/var/lib/postgresql/data
-volumes:
-  hapi-fhir-postgres:
+      - /product/postgres:/var/lib/postgresql/data

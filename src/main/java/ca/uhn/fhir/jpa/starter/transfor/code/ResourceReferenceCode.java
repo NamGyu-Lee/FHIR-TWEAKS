@@ -2,9 +2,10 @@ package ca.uhn.fhir.jpa.starter.transfor.code;
 
 public enum ResourceReferenceCode {
 
+	ORGANIZATION("Organization","Organization"),
 	PATIENT("Patient","Basement"),
-	PRACTITIONER("Practitioner","Basement"),
 	PRACTITIONERROLE("PractitionerRole","Basement"),
+	PRACTITIONER("Practitioner","Basement"),
 	ENCOUNTER("Encounter","Header"),
 	OTHERS("-", "Others")
 	;
