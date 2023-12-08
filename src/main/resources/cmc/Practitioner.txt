@@ -4,7 +4,7 @@
  * (profile).profile
   * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-medical-doctor'
 * identifier
- * system=Organization_id.oid
+ * system=Organization_oid
  * value=ord_dr_id
 * active='true'
 * (name).name

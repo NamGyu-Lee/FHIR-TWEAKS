@@ -1,12 +1,12 @@
 * resourceType='Condition'
-* id=(KEY)MERGE(ord_dd, '.', ord_dept_cd, '.', pid, '.', diag_no)
+* id=(KEY)MERGE(Organization_id, '.',  ord_dd, '.', ord_dept_cd, '.', pid, '.', diag_no)
 * meta
  * (profile).profile
   * 'http://connectdtx.kr/fhir/StructureDefinition/connectdtx-condition'
   * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-condition-chief-complaint'
 * identifier
- * system=Organization_id.oid
- * value=MERGE(ord_dd, '.', ord_dept_cd, '.', pid, '.', diag_no)
+ * system=Organization_oid
+ * value=MERGE(Organization_id, '.',  ord_dd, '.', ord_dept_cd, '.', pid, '.', diag_no)
 * category
  * (coding).coding
   * system='http://www.hl7korea.or.kr/fhir/krcore/CodeSystem/krcore-condition-category-types'

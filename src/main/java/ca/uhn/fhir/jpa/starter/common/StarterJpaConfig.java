@@ -503,15 +503,15 @@ public class StarterJpaConfig {
 				DevRemoteTerminologyServiceValidationSupport remoteTermSvc = new DevRemoteTerminologyServiceValidationSupport(ctx);
 				remoteTermSvc.setBaseUrl(customValidationRemoteConfigProperties.getRemoteURL());
 				validationSupportChain = new ValidationSupportChain(
-					// 1. 기본적인 FHIR의 Support 구성
-					//, new CommonCodeSystemsTerminologyService(ctx)
-					//, new SnapshotGeneratingValidationSupport(ctx)
-					// 3. IG와 Terminology 처리
-					// 2. 로컬에만 있는 코드의 경우 적용
-				   remoteTermSvc
+				   // Terminology Server 관련 Validation Chain 설정
+					remoteTermSvc
+					// FHIR 기본 구조형의 대한 Validation Chain 설정
 				   ,new DefaultProfileValidationSupport(ctx)
+					// 메모리기반의 서버 Validation 설정
 					,new DevInMemoryTerminologyServerValidationSupport(ctx)
+					// 메모리에 Validation을 위한 Structure, ValueSet, CodeSystem 등을 배치
 					,prePopulatedSupport
+					// 코드가 없는 경우의 대한 가용범위 정의
 					,new UnknownCodeSystemWarningValidationSupport(ctx)
 				);
 

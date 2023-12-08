@@ -1,0 +1,37 @@
+* resourceType='MedicationRequest'
+* id=(KEY)MERGE('MR', '.', Organization_id, '.', pid, '.', prcp_no)
+* meta
+ * (profile).profile
+  * 'http://connectdtx.kr/fhir/StructureDefinition/connectdtx-medicationrequest'
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-medicationrequest'
+* identifier
+ * system=Organization_oid
+ * value=MERGE('MR', '.', Organization_id, '.', pid, '.', prcp_no)
+* status='completed'
+* intent=inten_flag
+* reportedBoolean='false'
+* medicationCodeableConcept
+ * (coding).coding
+  * system='http://www.hl7korea.or.kr/CodeSystem/hira-edi-medication'
+  * code=prcp_cd
+  * display=edi_nm
+* subject
+ * reference=MERGE('Patient/', Patient_id)
+* encounter
+ * reference=MERGE('Encounter/',Encounter_id)
+* authoredOn=DATE(prcp_dd ,'yyyyMMdd', 'yyyy-MM-dd')
+* requester
+ * reference=MERGE('PractitionerRole/',PractitionerRole_id)
+*(dosageInstruction).dosageInstruction
+ * text=abbr_nm
+ * timing
+  * repeat
+   * frequency=freq_cnt
+   * period=prcp_days
+   * periodUnit='d'
+ * route
+  * text='unknown'
+ * (doseAndRate).doseAndRate
+  * doseQuantity
+   * value=prcp_vol
+   * unit=prcp_vol_unit_nm

@@ -8,15 +8,15 @@
  * type
   * (coding).coding
    * system='http://terminology.hl7.org/CodeSystem/v2-0203-1'
-   * code=code
+   * code='code'
  * system='http://www.hl7korea.or.kr/Identifier/hira-krnpi'
- * value=value
+ * value=MERGE(Organization_id, '.', pid)
  * type
   * (coding).coding
    * system='http://terminology.hl7.org/CodeSystem/v2-0203-2'
-   * code=code
+   * code='MR'
  * system='http://www.hl7korea.or.kr/Identifier/hira-krnpi'
- * value=value
+ * value=MERGE(Organization_id, '.', pid)
 * active='true'
 * (name).name
  * text=hng_nm

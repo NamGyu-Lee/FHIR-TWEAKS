@@ -32,6 +32,8 @@ import java.util.stream.Collectors;
 /**
  * 2023. 11. 07. Client 방식으로 맵핑해서 데이터를 적재하는 프로세스의 대하여
  * 사용자에게 서비스를 제공하는 Controller 역할을 수행한다.
+ *
+ * (구) 모델. 고정형 모델
  */
 public class ResourceTransforOperationProvider extends BaseJpaProvider {
 

@@ -153,6 +153,9 @@ public class TransformUtil {
 	public static Object getNestedValueInJson(JSONObject jsonObject, String keyPath) throws org.json.JSONException {
 		String[] keys = keyPath.split("\\.");
 		JSONObject tempObj = jsonObject;
+
+		System.out.println("DEV!!! : " + jsonObject.toString());
+
 		for (int i = 0; i < keys.length - 1; i++) {
 			tempObj = tempObj.getJSONObject(keys[i]);
 		}

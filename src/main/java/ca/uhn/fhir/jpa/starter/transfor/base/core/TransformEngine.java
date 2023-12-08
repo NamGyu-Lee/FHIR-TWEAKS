@@ -59,7 +59,7 @@ public class TransformEngine{
 					// source에 데이터가 없는 경우.
 					throw new IllegalArgumentException("소스의 데이터에 " + ruleNode.getSourceReferenceNm() + " 가 없습니다.");
 				}else{
-					target.put(ruleNode.getTargetElementNm(), source.get(ruleNode.getSourceReferenceNm()));
+					target.put(ruleNode.getTargetElementNm(), source.get(ruleNode.getSourceReferenceNm().trim()));
 				}
 			}else if(ruleNode.getTransactionType().equals(TransactionType.COPY_STRING)){
 				target.put(ruleNode.getTargetElementNm(), ruleNode.getSourceReferenceNm().replaceAll("'", ""));
@@ -293,7 +293,6 @@ public class TransformEngine{
 						RuleUtils.mergeJsonObjects(mergeJsonObj, retTargetList.get(retKey).get(0));
 					}
 				}
-
 				retTarget = mergeJsonObj;
 
 				// 3. 단일형 반영
