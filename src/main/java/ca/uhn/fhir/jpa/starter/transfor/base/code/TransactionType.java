@@ -5,7 +5,7 @@ import lombok.Getter;
 import java.util.regex.Pattern;
 
 /**
- * 룰의 분류를 정의한다.
+ * 세부적인 동작의 대한 룰의 분류를 정의한다.
  */
 @Getter
 public enum TransactionType {

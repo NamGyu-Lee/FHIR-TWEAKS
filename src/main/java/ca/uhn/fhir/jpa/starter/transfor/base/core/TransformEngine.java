@@ -40,9 +40,6 @@ public class TransformEngine{
 
 	// 룰 실행부분
 	public JSONObject executeRule(RuleNode ruleNode, JSONObject source) throws JSONException {
-
-		System.out.println("[DEV] Start Rule : " + ruleNode.getRule());
-
 		//  1. 룰 동작
 		JSONObject target = new JSONObject();
 		if (ruleNode.getRuleType().equals(RuleType.CREATE)){
@@ -163,7 +160,6 @@ public class TransformEngine{
 			setIdentifierGenerator(source.getString("resourcetype"), ruleNode.getSourceReferenceNm(), answer);
 		}
 
-		System.out.println("[DEV] ??!!! ");
 		return target;
 	}
 
@@ -188,8 +184,6 @@ public class TransformEngine{
 			// target = target(seperation + seperation)
 			MultiValueMap<String, JSONObject> retTargetList = new LinkedMultiValueMap<>();
 			for(RuleNode childNode : ruleNode.getChildren()){
-				//System.out.println(" -- Parent Rule : " + ruleNode.getRule());
-				//System.out.println(" -- Child Rule : " + childNode.getRule());
 				// 1. 하위 룰 조회.
 				ActivateTransNode subRuleNode = new ActivateTransNode();
 				subRuleNode.setRuleNode(childNode);
@@ -328,7 +322,6 @@ public class TransformEngine{
 				activateTransNode.setSource(sourceObj);
 				activateTransNode.setTarget(targetObject);
 				ActivateTransNode ret = recursiveActTransNode(activateTransNode);
-				//System.out.println(" ▶ Active Result Per Rules : " + ret.getTarget().toString());
 
 				// mergeRule
 				// 1. 같은 룰이 두개 이상 들어오면 Array처리하기

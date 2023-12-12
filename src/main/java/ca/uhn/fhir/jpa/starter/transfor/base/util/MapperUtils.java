@@ -10,7 +10,6 @@ import java.util.*;
  *  각 Node는 하나의 룰을 관리.
  */
 public class MapperUtils {
-
 	public static int getLevel(String line) {
 		int count = 0;
 		for (char c : line.toCharArray()) {

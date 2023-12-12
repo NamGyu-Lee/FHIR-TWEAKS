@@ -1,4 +1,4 @@
-package ca.uhn.fhir.jpa.starter.transfor.dto.base;
+package ca.uhn.fhir.jpa.starter.transfor.base.reference.structure;
 
 import lombok.Getter;
 import lombok.Setter;

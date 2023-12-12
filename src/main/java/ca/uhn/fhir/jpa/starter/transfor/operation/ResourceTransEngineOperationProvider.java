@@ -5,11 +5,15 @@ import ca.uhn.fhir.jpa.provider.BaseJpaProvider;
 import ca.uhn.fhir.jpa.starter.transfor.base.core.TransformEngine;
 import ca.uhn.fhir.jpa.starter.transfor.code.ResourceReferenceCode;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
-import ca.uhn.fhir.jpa.starter.transfor.dto.base.ReferenceDataMatcher;
-import ca.uhn.fhir.jpa.starter.transfor.dto.base.ReferenceDataSet;
+import ca.uhn.fhir.jpa.starter.transfor.base.reference.structure.ReferenceDataMatcher;
+import ca.uhn.fhir.jpa.starter.transfor.base.reference.structure.ReferenceDataSet;
+import ca.uhn.fhir.jpa.starter.transfor.dto.comm.ResponseDto;
+import ca.uhn.fhir.jpa.starter.transfor.operation.code.ResponseStateCode;
 import ca.uhn.fhir.jpa.starter.transfor.util.TransformUtil;
 import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationRemoteConfigProperties;
 import ca.uhn.fhir.rest.annotation.Operation;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.util.JSONPObject;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -103,11 +107,23 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 				}
 			}
 
-			retMessage = fn.newJsonParser().encodeResourceToString(bundle);
+			// 3. 결과 리턴
+			String retBundle = fn.newJsonParser().encodeResourceToString(bundle);
+			ResponseDto<String> responseDto = ResponseDto.<String>builder().success(ResponseStateCode.OK.getSuccess()).stateCode(ResponseStateCode.OK.getStateCode()).errorReason("-").body(retBundle).build();
+			ObjectMapper mapper = new ObjectMapper();
+			String jsonStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseDto);
+
+			retMessage = jsonStr;
 
 		}catch(Exception e){
 			e.printStackTrace();
-			retMessage = e.getMessage();
+
+			ResponseDto<String> responseDto = ResponseDto.<String>builder().success(ResponseStateCode.BAD_REQUEST.getSuccess()).stateCode(ResponseStateCode.BAD_REQUEST.getStateCode()).errorReason("-").body("-").build();
+			ObjectMapper mapper = new ObjectMapper();
+			String jsonStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseDto);
+
+			retMessage = jsonStr;
+
 		}finally{
 			theResponse.setCharacterEncoding("UTF-8");
 			theResponse.setContentType("text/plain");
@@ -188,7 +204,7 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 	 * @throws JSONException the json exception
 	 */
 	public JSONObject settingSourceWithReferenceSet(String mapType, JSONObject sourceObject) throws JSONException {
-		try{
+		try {
 			loggingInDebugMode("[DEV] mapType : " + mapType);
 			ResourceReferenceCode referenceCode = ResourceReferenceCode.searchResourceReferenceCodeWithContainResName(mapType);
 
@@ -249,10 +265,10 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 				String searchId = TransformUtil.createResourceId("Organization", searchKeyPartSet, sourceObject);
 				String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId).getReference();
 				sourceObject.put("Organization_id", organizationId);
-				System.out.println(" >>> regist Organization_id : " + organizationId);
+				loggingInDebugMode(" >>> regist Organization_id : " + organizationId);
 
-				String organizationOId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId+".oid").getReference();
-				System.out.println(" >>> regist Organization_oid : " + organizationOId);
+				String organizationOId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId + ".oid").getReference();
+				loggingInDebugMode(" >>> regist Organization_oid : " + organizationOId);
 				sourceObject.put("Organization_oid", organizationOId);
 
 				searchKeyPartSet.clear();
@@ -278,7 +294,29 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 				String practitionerId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId).getReference();
 				sourceObject.put("Practitioner_id", practitionerId);
 
-			} else if (referenceCode.getBaseType().equals("Others")) {
+			}else if(referenceCode.getBaseType().equals("PatientExtendData")){
+				// 환자정보 / 기관정보 외 필요없는 케이스( ex)알러지 등
+				LinkedHashSet<String> searchKeyPartSet = new LinkedHashSet<>();
+				searchKeyPartSet.add("inst_cd");
+				String searchId = TransformUtil.createResourceId("Organization", searchKeyPartSet, sourceObject);
+				String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId).getReference();
+				sourceObject.put("Organization_id", organizationId);
+				loggingInDebugMode(" >>> regist Organization_id : " + organizationId);
+
+				String organizationOId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId + ".oid").getReference();
+				loggingInDebugMode(" >>> regist Organization_oid : " + organizationOId);
+				sourceObject.put("Organization_oid", organizationOId);
+
+				searchKeyPartSet.clear();
+				searchKeyPartSet.add("Organization_id");
+				searchKeyPartSet.add("pid");
+				searchId = TransformUtil.createResourceId("Patient", searchKeyPartSet, sourceObject);
+				loggingInDebugMode("PAT SEARCH : " + searchId);
+				String patientId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId).getReference();
+				loggingInDebugMode("PAT SEARCHED : " + patientId);
+				sourceObject.put("Patient_id", patientId);
+
+			}else if (referenceCode.getBaseType().equals("Others")){
 				// 리소스 서치
 				Map<String, String> identifierSet = new HashMap<>();
 				// TODO. Header인 Encounter 리소스를 가져오는 과정에서 해당 리소스가 가진 키값의 정의를 
@@ -290,7 +328,7 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 				try{
 					identifierSet.put("ord_type_cd", sourceObject.getString("ord_type_cd"));
 				}catch(org.json.JSONException e){
-					System.out.println("  >> 해당 리소스는 ordTypeCD 가 존재하지 않아 해당 내용없이 인덱스를 조회합니다.");
+					loggingInDebugMode("  >> 해당 리소스는 ordTypeCD 가 존재하지 않아 해당 내용없이 인덱스를 조회합니다.");
 				}
 				identifierSet.put("ord_dr_id", sourceObject.getString("ord_dr_id"));
 				identifierSet.put("cret_no", sourceObject.getString("cret_no"));

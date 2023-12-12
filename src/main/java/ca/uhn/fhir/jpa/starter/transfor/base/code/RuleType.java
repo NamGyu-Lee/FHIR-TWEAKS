@@ -2,6 +2,9 @@ package ca.uhn.fhir.jpa.starter.transfor.base.code;
 
 import java.util.regex.Pattern;
 
+/** 2023. 12.
+ *  JSON 변환 맵의 가장 기본적인 룰의 구조의 대하여 정의
+ */
 public enum RuleType {
 	CREATE_ARRAY("\\([^)]*\\)\\..*"),
 	TRANS(".*=.*"),

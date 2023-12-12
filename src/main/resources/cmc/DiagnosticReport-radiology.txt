@@ -2,7 +2,7 @@
 * id =(KEY)MERGE('DR','.', Organization_id, '.', pacs_no)
 * meta
  * (profile).profile
-  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-diagnosticreport-pathology-results'
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-diagnosticreport-diagnostic-imaging'
 * identifier
  * system=Organization_oid
  * value=MERGE('DR','.', Organization_id, '.', pacs_no)
@@ -10,7 +10,7 @@
 * (category).category
  * (coding).coding
   * system='http://terminology.hl7.org/CodeSystem/v2-0074'
-  * value='PAT'
+  * value='IMG'
 * code
  * (coding).coding
   * system='http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure'

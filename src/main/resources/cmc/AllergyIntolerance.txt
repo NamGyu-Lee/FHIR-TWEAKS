@@ -1,0 +1,17 @@
+* resourceType='AllergyIntolerance'
+* id=(KEY)MERGE('ALG', '.', Organization_id, '.', symp_genr_dd, '.', kostom_cd)
+* meta
+ * (profile).profile
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-allergyintolerance'
+* identifier
+ * system=Organization_oid
+ * value=MERGE('ALG', '.', Organization_id, '.', symp_genr_dd, '.', kostom_cd)
+* clinicalStatus='active'
+* code
+ * (coding).coding
+  * system='http://www.whocc.no/atc'
+  * code=kostom_cd
+ * text=alrg_etc_cnts
+* patient
+ * reference=MERGE('Patient/', Patient_id)
+* recordedDate=DATE(symp_genr_dd, 'yyyyMMdd', 'yyyy-MM-dd')

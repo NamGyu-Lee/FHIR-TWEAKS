@@ -1,0 +1,17 @@
+* resourceType='Procedure'
+* id=(KEY)MERGE('PD', '.', Organization_id, '.', pid, '.', op_rsrv_no)
+* state='completed'
+ * (profile).profile
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-procedure'
+* identifier
+ * system=Organization_oid
+ * value=MERGE('PD', '.', Organization_id, '.', pid, '.', op_rsrv_no)
+* code
+ * (coding).coding
+  * system='http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure'
+  * code=icd9n_cd
+  * display=op_nm
+ * text=op_nm
+* performedDateTime=DATE(op_dd, 'yyyyMMdd', 'yyyy-MM-dd')
+* subject
+ * reference=MERGE('Patient/', Patient_id)

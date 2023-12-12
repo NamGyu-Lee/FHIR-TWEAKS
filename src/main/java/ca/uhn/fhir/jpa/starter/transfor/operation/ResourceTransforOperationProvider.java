@@ -6,8 +6,8 @@ import ca.uhn.fhir.jpa.api.dao.IFhirResourceDao;
 import ca.uhn.fhir.jpa.provider.BaseJpaProvider;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
-import ca.uhn.fhir.jpa.starter.transfor.dto.base.ReferenceDataMatcher;
-import ca.uhn.fhir.jpa.starter.transfor.dto.base.ReferenceDataSet;
+import ca.uhn.fhir.jpa.starter.transfor.base.reference.structure.ReferenceDataMatcher;
+import ca.uhn.fhir.jpa.starter.transfor.base.reference.structure.ReferenceDataSet;
 import ca.uhn.fhir.jpa.starter.transfor.service.cmc.CmcDataTransforServiceImpl;
 import ca.uhn.fhir.jpa.starter.transfor.util.TransformUtil;
 import ca.uhn.fhir.model.api.IQueryParameterType;
@@ -27,7 +27,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 2023. 11. 07. Client 방식으로 맵핑해서 데이터를 적재하는 프로세스의 대하여
