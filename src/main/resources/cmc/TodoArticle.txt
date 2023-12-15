@@ -1,0 +1,40 @@
+# referenece 관련 항목을 강화시킨 맵 구성방향성 제시
+# 1. reference 와 기타 Engine을 위한 mapping 을 위한 용도
+* metadata
+ * mapping
+  * keyType=Organization # organization, base, others 로 나누어 구성. organization, base는 cache 가 컨트롤.
+                         # cache 에 값이 없다면, FHIR 내부 repo 검색, 검색후 옶다면 policy 정책 확인후 동작수행
+  * policy=Exception # reference 가 없는 경우 어떻게 정책구성할지 결정. 튕겨내거나, 안튕겨내거나(Exception, Warning, Ignore)
+  * referenceData
+   * referenceResource  # reference 고정형
+    * id = Organization/3322
+   * referenceResource  # reference 유동형
+    * ord_dd = prcp_dd
+    * ord_dr_id = ord_dr_id
+    * inst_cd = inst_cd
+    * pid = pid
+    * io_flag = ord_type_cd
+    > policy = # 이 리소스가 존재하지 않을 경우 방향성 1. 무시(해당 reference가 최종결과에서 소거), 2. 오류처리
+----------------
+# 2. 실제 Mapping 구조
+* resourceType='ServiceRequest'
+* id=(KEY)MERGE(Organization_id, '.',  pid, '.', prcp_no)
+* meta
+ * (profile).profile
+  * http://phis.co.kr/fhir/StructureDefinition/StructureDefinition-svccore-servicerequest
+* identifier
+ * system=Organization_oid
+ * value=MERGE(Organization_id, '.',  pid, '.', prcp_no)
+* status='active'
+* intent='order'
+* code
+ * (coding).coding
+  * system=Organization_oid
+  * code=prcp_cd
+  * display=prcp_nm
+* requester
+ * reference=MERGE('PractitionerRole/', PractitionerRole_id)
+* subject
+ * reference=MERGE('Patient/', Patient_id)
+* encounter
+ * reference=MERGE('Encounter/', Encounter_id)
