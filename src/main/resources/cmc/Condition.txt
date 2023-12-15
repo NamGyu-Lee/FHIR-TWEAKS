@@ -20,6 +20,6 @@
  * reference=MERGE('Patient/', Patient_id)
 * encounter
  * reference=MERGE('Encounter/',Encounter_id)
-* recordedDate=DATE(dsch_dd, 'yyyyMMdd', 'yyyy-MM-dd')
+* recordedDate=DATE(ord_dd, 'yyyyMMdd', 'yyyy-MM-dd')
 * recorder
  * reference=MERGE('PractitionerRole/',PractitionerRole_id)

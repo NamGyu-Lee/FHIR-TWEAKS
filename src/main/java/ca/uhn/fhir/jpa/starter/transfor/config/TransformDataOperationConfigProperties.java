@@ -44,14 +44,15 @@ public class TransformDataOperationConfigProperties {
 		resourceUpperSortingReferenceSet.add("practitionData");
 		resourceUpperSortingReferenceSet.add("medication");
 		resourceUpperSortingReferenceSet.add("patient");
-		resourceUpperSortingReferenceSet.add("encounter");
-		resourceUpperSortingReferenceSet.add("condition");
 
 		// 순서상 가장 나중에 생성되어야 하는 리소스 요소
 		resourceLowerSortingReferenceSet = new LinkedHashSet<>();
+		resourceUpperSortingReferenceSet.add("encounter");
+		resourceUpperSortingReferenceSet.add("condition");
 		resourceUpperSortingReferenceSet.add("medicationrequest");
 		resourceLowerSortingReferenceSet.add("procedure");
 		resourceLowerSortingReferenceSet.add("imageStudy");
+		resourceUpperSortingReferenceSet.add("servicerequest");
 	}
 
 	public boolean isTransforEnabled() {

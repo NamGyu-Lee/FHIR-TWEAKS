@@ -25,8 +25,8 @@ services:
         target: /data/hapi/application.yaml
     volumes:
       - /product/ig:/app/ig/
-      - /product/fhir2/initSetting:/data/hapi
-      - /product/fhir2/theme:/theme
+      - /product/fhir/initSetting:/data/hapi
+      - /product/fhir/theme:/theme
     environment:
       SPRING_CONFIG_LOCATION: 'file:///data/hapi/application.yaml'
   hapi-fhir-postgres:

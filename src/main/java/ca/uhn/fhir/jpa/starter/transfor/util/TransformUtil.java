@@ -5,12 +5,13 @@ import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigPrope
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.springframework.core.io.ClassPathResource;
 
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -175,17 +176,23 @@ public class TransformUtil {
 		Iterator<String> iterator = linkedList.iterator();
 		while(iterator.hasNext()){
 			if(location.length()== 0){
-				location = iterator.next();
+				// 폴더는 항상 소문자.
+				location = iterator.next().toLowerCase();
 			}else{
 				location = location +"/"+ iterator.next();
 			}
 		}
 		location = location + ".txt";
 
-		ClassPathResource resource = new ClassPathResource(location);
+ 		ClassPathResource resource = new ClassPathResource(location);
 		try {
-			Path path = Paths.get(resource.getURI());
+			InputStream inputStream = new ClassPathResource(location).getInputStream();
+			File file = File.createTempFile("maptempfile", ".dat");
+			FileUtils.copyInputStreamToFile(inputStream, file);
+
+			Path path = file.toPath();
 			List<String> content = Files.readAllLines(path);
+
 			String retString = "";
 			for(String eachLine : content) {
 				retString = retString + eachLine + "\n";

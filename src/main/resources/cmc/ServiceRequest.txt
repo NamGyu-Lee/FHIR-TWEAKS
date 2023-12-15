@@ -1,0 +1,21 @@
+* resourceType='ServiceRequest'
+* id=(KEY)MERGE(Organization_id, '.',  pid, '.', prcp_no)
+* meta
+ * (profile).profile
+  * http://phis.co.kr/fhir/StructureDefinition/StructureDefinition-svccore-servicerequest
+* identifier
+ * system=Organization_oid
+ * value=MERGE(Organization_id, '.',  pid, '.', prcp_no)
+* status='active'
+* intent='order'
+* code
+ * (coding).coding
+  * system=Organization_oid
+  * code=prcp_cd
+  * display=prcp_nm
+* requester
+ * reference=MERGE('PractitionerRole/', PractitionerRole_id)
+* subject
+ * reference=MERGE('Patient/', Patient_id)
+* encounter
+ * reference=MERGE('Encounter/', Encounter_id)

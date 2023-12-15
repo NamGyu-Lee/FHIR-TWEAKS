@@ -161,7 +161,8 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 				}catch(IllegalArgumentException | JSONException e){
 					e.printStackTrace();
 					loggingInDebugMode("[ERR] 해당 래퍼런스 조회 과정에서 오류가 발생하였습니다. " + sourceObject);
-					loggingInDebugMode("   ㄴ " + mapType);
+					loggingInDebugMode("   ㄴ map type " + mapType);
+					loggingInDebugMode("   ㄴ cause :  " + e.getMessage());
 					continue;
 				}
 
@@ -284,6 +285,7 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 				searchKeyPartSet.add("Organization_id");
 				searchKeyPartSet.add("ord_dr_id");
 				searchId = TransformUtil.createResourceId("PractitionerRole", searchKeyPartSet, sourceObject);
+				loggingInDebugMode("PractitionerRole_id SEARCH : " + searchId);
 				String practitionerRoleId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId).getReference();
 				sourceObject.put("PractitionerRole_id", practitionerRoleId);
 
@@ -291,6 +293,7 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 				searchKeyPartSet.add("Organization_id");
 				searchKeyPartSet.add("ord_dr_id");
 				searchId = TransformUtil.createResourceId("Practitioner", searchKeyPartSet, sourceObject);
+				loggingInDebugMode("Practitioner_id SEARCH : " + searchId);
 				String practitionerId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get(searchId).getReference();
 				sourceObject.put("Practitioner_id", practitionerId);
 
