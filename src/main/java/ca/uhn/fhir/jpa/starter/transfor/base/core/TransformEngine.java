@@ -301,7 +301,7 @@ public class TransformEngine{
 
 	// 실제 동작함수
 	public IBaseResource transformDataToResource(String map, @NonNull JSONObject source){
-		String script = map;
+		String script = MapperUtils.getSeparateMapScript(map, "transform");
 
 		// 1. 트리 생성
 		List<RuleNode> ruleNodeList = MapperUtils.createTree(script);

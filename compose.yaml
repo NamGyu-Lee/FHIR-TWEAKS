@@ -1,0 +1,10 @@
+#<!-- 2023. 12. boot compose build in runtime. Spring Boot 3.1.4 이상 지원하는 hapi-fhir 7.0.0 (TBD) 이후로 활용가능. -->
+services:
+  hapi-fhir-postgres:
+    image: 'postgres:15.1'
+    environment:
+      - 'POSTGRES_DB=hapi_dstu3'
+      - 'POSTGRES_USER=DTxUser'
+      - 'POSTGRES_PASSWORD=Khmc1803!'
+    ports:
+      - '5432'

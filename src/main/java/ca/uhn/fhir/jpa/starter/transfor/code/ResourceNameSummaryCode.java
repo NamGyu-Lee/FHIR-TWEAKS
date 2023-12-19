@@ -17,7 +17,6 @@ public enum ResourceNameSummaryCode {
 	DEVICE("Device", "DV"),
 	IMMUNIZATION("Immunization", "IMU"),
 	IMAGINGSTUDY("ImagingStudy", "IMGS"),
-
 	SERVICEREQUEST("ServiceRequest", "SVCR")
 	;
 

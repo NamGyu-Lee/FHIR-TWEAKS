@@ -1,3 +1,8 @@
+* metadata
+ * mapping
+  * error_policy = error;
+  * cacheKey = inst_cd, proc_corp_cd
+-----
 * resourceType='Organization'
 * id=(KEY)SPLIT(proc_corp_cd, 26)
 * meta

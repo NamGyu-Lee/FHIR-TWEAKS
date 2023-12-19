@@ -26,6 +26,9 @@ public class TransformDataOperationConfigProperties {
 	@Value("${service.transfor.logging}")
 	private boolean transforLogging;
 
+	@Value("${service.transfor.referencesearch}")
+	private boolean searchReferenceinRepoEnabled;
+
 	@Value("${service.transfor.ignorenoencounter}")
 	private boolean transforIgnoreHasNoEncounter;
 
@@ -51,7 +54,7 @@ public class TransformDataOperationConfigProperties {
 		resourceUpperSortingReferenceSet.add("condition");
 		resourceUpperSortingReferenceSet.add("medicationrequest");
 		resourceLowerSortingReferenceSet.add("procedure");
-		resourceLowerSortingReferenceSet.add("imageStudy");
+		resourceLowerSortingReferenceSet.add("imagestudy");
 		resourceUpperSortingReferenceSet.add("servicerequest");
 	}
 
@@ -77,4 +80,7 @@ public class TransformDataOperationConfigProperties {
 		return resourceUpperSortingReferenceSet;
 	}
 
+	public boolean isSearchReferenceinRepoEnabled() {
+		return searchReferenceinRepoEnabled;
+	}
 }

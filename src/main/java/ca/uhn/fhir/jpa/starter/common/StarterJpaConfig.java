@@ -50,6 +50,7 @@ import ca.uhn.fhir.jpa.starter.terminology.config.TerminologyCodeConfigPropertie
 import ca.uhn.fhir.jpa.starter.terminology.config.TerminologyPagingConfigProperties;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
 import ca.uhn.fhir.jpa.starter.transfor.operation.ResourceTransEngineOperationProvider;
+import ca.uhn.fhir.jpa.starter.transfor.operation.ResourceTransformProvider;
 import ca.uhn.fhir.jpa.starter.transfor.operation.ResourceTransforOperationProvider;
 import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationBaseConfigProperties;
 import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationRemoteConfigProperties;
@@ -165,6 +166,13 @@ public class StarterJpaConfig {
 	public ResourceTransEngineOperationProvider resourceTransEngineOperationProvider(FhirContext fhirContext){
 		ResourceTransEngineOperationProvider resourceTransEngineOperationProvider = new ResourceTransEngineOperationProvider(fhirContext);
 		return resourceTransEngineOperationProvider;
+	}
+
+	@Bean
+	// 2023. 12. 15. 자체구현한 알고리즘을 활용한 Transform Engine + Reference Engine 변환 Provider 구성
+	public ResourceTransformProvider resourceTransEngineProvider(FhirContext fhirContext){
+		ResourceTransformProvider resourceTransformProvider = new ResourceTransformProvider(fhirContext);
+		return resourceTransformProvider;
 	}
 
 	/**
@@ -297,7 +305,7 @@ public class StarterJpaConfig {
 
 	@Bean
 	public RestfulServer restfulServer(IFhirSystemDao<?, ?> fhirSystemDao, AppProperties appProperties, DaoRegistry daoRegistry, Optional<MdmProviderLoader> mdmProviderProvider, IJpaSystemProvider jpaSystemProvider, ResourceProviderFactory resourceProviderFactory, JpaStorageSettings jpaStorageSettings, ISearchParamRegistry searchParamRegistry, IValidationSupport theValidationSupport, DatabaseBackedPagingProvider databaseBackedPagingProvider, LoggingInterceptor loggingInterceptor, Optional<TerminologyUploaderProvider> terminologyUploaderProvider, Optional<SubscriptionTriggeringProvider> subscriptionTriggeringProvider, Optional<CorsInterceptor> corsInterceptor, IInterceptorBroadcaster interceptorBroadcaster, Optional<BinaryAccessProvider> binaryAccessProvider, BinaryStorageInterceptor binaryStorageInterceptor, IValidatorModule validatorModule, Optional<GraphQLProvider> graphQLProvider, BulkDataExportProvider bulkDataExportProvider, BulkDataImportProvider bulkDataImportProvider, ValueSetOperationProvider theValueSetOperationProvider, ReindexProvider reindexProvider, PartitionManagementProvider partitionManagementProvider, Optional<RepositoryValidatingInterceptor> repositoryValidatingInterceptor, IPackageInstallerSvc packageInstallerSvc, ThreadSafeResourceDeleterSvc theThreadSafeResourceDeleterSvc, ApplicationContext appContext, Optional<IpsOperationProvider> theIpsOperationProvider
-	 , ResourceTransforOperationProvider resourceTransforOperationProvider, ResourceTransEngineOperationProvider resourceTransEngineOperationProvider
+	 , ResourceTransforOperationProvider resourceTransforOperationProvider, ResourceTransEngineOperationProvider resourceTransEngineOperationProvider, ResourceTransformProvider resourceTransformProvider
 	) {
 
 		ourLog.info(" >> restful Server Start...!!");
@@ -587,7 +595,9 @@ public class StarterJpaConfig {
 			}
 
 			// transfor 패턴 분류에 따라 다른 Operation Provider가 활용
-			if("engine".equals(transformDataOperationConfigProperties.getTypeOfTransformPattern())){
+			if("engine+ref".equals(transformDataOperationConfigProperties.getTypeOfTransformPattern())){
+				fhirServer.registerProvider(resourceTransformProvider);
+			}else if("engine".equals(transformDataOperationConfigProperties.getTypeOfTransformPattern())){
 				fhirServer.registerProvider(resourceTransEngineOperationProvider);
 			}else if("client".equals(transformDataOperationConfigProperties.getTypeOfTransformPattern())){
 				fhirServer.registerProvider(resourceTransforOperationProvider);

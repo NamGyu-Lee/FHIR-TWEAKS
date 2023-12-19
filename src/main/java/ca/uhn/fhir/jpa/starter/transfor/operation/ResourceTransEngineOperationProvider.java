@@ -35,7 +35,7 @@ import java.util.*;
 /** 2023 . 11. 27.
  *  FHIR의 데이터 생성의 대하여 TransformEngine 의 기능을 활용하여 서비스를 구성한다.
  *  사용자에게 서비스를 제공하는 Controller 역할을 수행한다.
- * (신) 모델. 유동적 구성 가능 모델
+ * (신) 모델. 유동적 구성 가능 모델  ver 2.0
  */
 public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 
@@ -160,6 +160,16 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 					sourceObject = this.settingSourceWithReferenceSet(mapType, sourceObject);
 				}catch(IllegalArgumentException | JSONException e){
 					e.printStackTrace();
+
+					for(String eachUpperResourceStr : transformDataOperationConfigProperties.getResourceUpperSortingReferenceSet()){
+						if(eachUpperResourceStr.equals(sourceObject.getString("resourcetype"))){
+							loggingInDebugMode("[ERR] 해당 래퍼런스 조회 과정에서 오류가 발생하였습니다. " + sourceObject);
+							loggingInDebugMode("   ㄴ map type " + mapType);
+							loggingInDebugMode("   ㄴ cause :  " + e.getMessage());
+							throw new IllegalArgumentException("[ERR] 해당 리소스가 레퍼런스 조회과정에서 오류가 발생하였습니다.");
+						}
+					}
+
 					loggingInDebugMode("[ERR] 해당 래퍼런스 조회 과정에서 오류가 발생하였습니다. " + sourceObject);
 					loggingInDebugMode("   ㄴ map type " + mapType);
 					loggingInDebugMode("   ㄴ cause :  " + e.getMessage());

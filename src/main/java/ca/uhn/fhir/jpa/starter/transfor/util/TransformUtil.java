@@ -191,10 +191,18 @@ public class TransformUtil {
 			FileUtils.copyInputStreamToFile(inputStream, file);
 
 			Path path = file.toPath();
-			List<String> content = Files.readAllLines(path);
 
+			List<String> content = Files.readAllLines(path);
 			String retString = "";
 			for(String eachLine : content) {
+				// # 처리된 주석은 그 줄에서 소거한다.
+				if(eachLine.contains("#")){
+					eachLine = eachLine.substring(0, eachLine.indexOf("#"));
+					if(eachLine.length() <= 0 || eachLine.equals("\n")){
+						continue;
+					}
+				}
+
 				retString = retString + eachLine + "\n";
 			}
 

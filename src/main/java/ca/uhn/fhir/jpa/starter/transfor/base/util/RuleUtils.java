@@ -2,6 +2,7 @@ package ca.uhn.fhir.jpa.starter.transfor.base.util;
 
 import ca.uhn.fhir.jpa.starter.transfor.base.code.RuleType;
 import ca.uhn.fhir.jpa.starter.transfor.base.code.TransactionType;
+import ca.uhn.fhir.jpa.starter.transfor.base.core.TransformEngine;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -14,6 +15,7 @@ import java.util.regex.Pattern;
  *  Mapper의 룰의 동작과 수행을 정의한다.
  */
 public class RuleUtils {
+
 	public static RuleType classifyRuleType(String line) {
 		for (RuleType type : RuleType.values()) {
 			if (type.matches(line)) {

@@ -63,6 +63,17 @@ spring:
 # hibernate search 기반 lucene 으로 elasticSearch 활용 시
 #      hibernate.search.backend.type: elasticsearch
 #      hibernate.search.backend.analysis.configurer: ca.uhn.fhir.jpa.search.HapiHSearchAnalysisConfigurers$HapiElasticAnalysisConfigurer
+  # spring boot docker compose enable 설정
+  docker:
+    compose:
+      enabled: true
+      lifecycle-management: start_and_stop
+      stop:
+        command: down
+        timeout: 1m
+
+
+
 hapi:
   fhir:
     ### This enables the swagger-ui at /fhir/swagger-ui/index.html as well as the /fhir/api-docs (see https://hapifhir.io/hapi-fhir/docs/server_plain/openapi.html)
@@ -278,7 +289,8 @@ service:
         url: http://122.153.160.23:6010/fhir
   transfor:
     enabled: true
-    type: engine
+    type: engine+ref
     target: cmc
     logging: true
     ignorenoencounter: true
+    referencesearch: false
