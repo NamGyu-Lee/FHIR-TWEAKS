@@ -109,7 +109,7 @@ public class MapperUtils {
 
 			if(line.contains("error_policy=")) {
 				metaRule.setErrorHandleType(ErrorHandleType.searchErrorHandleType(line.split("=")[1].trim()));
-			}else if(line.contains("cacheData")){
+			}else if(line.contains("cacheKey")){
 				String cacheKeySingleStr = line.split("=")[1].trim();
 				String[] cacheKeyArray = cacheKeySingleStr.split(",");
 				Set<String> cacheKeySet = new HashSet<>();
@@ -131,7 +131,7 @@ public class MapperUtils {
 			}else if(line.contains("->")){
 				referenceParamNodeList.add(createReferenceParamNode(line));
 			}
-			if(!iterator.hasNext()){
+			if(!iterator.hasNext() && currentReferenceNode != null){
 				currentReferenceNode.setReferenceParamNodeList(referenceParamNodeList);
 				referenceNodeList.add(currentReferenceNode);
 			}
@@ -143,7 +143,7 @@ public class MapperUtils {
 	public static ReferenceParamNode createReferenceParamNode(String scriptLine) throws IllegalArgumentException{
 		String[] parts = scriptLine.split("->|::");
 		ReferenceParamNode refNode = new ReferenceParamNode();
-		refNode.setSourceStr(parts[0].trim());
+		refNode.setSourceStr(parts[0].replace("*", "").trim());
 		refNode.setCacheTargetStr(parts[1].trim());
 		refNode.setFhirTargetStr(parts[2].trim());
 		return refNode;
@@ -201,7 +201,7 @@ public class MapperUtils {
 		if("meta".equals(typeToScript)){
 			return parts[0];
 		}else{
-			return parts[1];
+			return parts[1].replaceAll("^\\n+", "");
 		}
 	}
 }

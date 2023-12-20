@@ -1,3 +1,23 @@
+* metadata
+ * mapping
+  * error_policy = exception
+  * cacheKey = inst_cd, pid, ord_dd, ord_dept_cd, ord_dr_id, ord_type_cd, cret_no
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+   * referenceResource
+    * target = PractitionerRole
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * ord_dr_id -> ord_dr_id :: -
+   * referenceResource
+    * target = Patient
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * pid -> pid :: -
+-----
 * resourceType='Encounter'
 * id=(KEY)MERGE(Organization_id, '.', ord_dd, '.', ord_dept_cd, '.', ord_dr_id, '.', ord_type_cd, '.', cret_no, '.', pid)
 * meta
@@ -5,7 +25,7 @@
   * 'http://connectdtx.kr/fhir/StructureDefinition/connectdtx-encounter'
   * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-encounter'
 * identifier
- * system=Organization_oid
+ * system=Organization_id
  * value=MERGE(Organization_id, '.', ord_dd, '.', ord_dept_cd, '.', ord_dr_id, '.', ord_type_cd, '.', cret_no, '.', pid)
 * status='finished'
 * class

@@ -1,10 +1,31 @@
+* metadata
+ * mapping
+  * error_policy = exception
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+   * referenceResource
+    * target = Patient
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * pid -> pid :: -
+   * referenceResource
+    * target = Encounter
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * pid -> pid :: -
+    * ord_dd -> ord_dd :: -
+    * ord_dept_cd -> ord_dept_cd :: -
+-----
 * resourceType='DiagnosticReport'
 * id =(KEY)MERGE('DR','.', Organization_id, '.', pacs_no)
 * meta
  * (profile).profile
   * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-diagnosticreport-diagnostic-imaging'
 * identifier
- * system=Organization_oid
+ * system=Organization_id
  * value=MERGE('DR','.', Organization_id, '.', pacs_no)
 * status=stat_cd
 * (category).category

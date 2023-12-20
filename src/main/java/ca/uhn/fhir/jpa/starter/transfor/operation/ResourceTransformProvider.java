@@ -8,9 +8,12 @@ import ca.uhn.fhir.jpa.starter.transfor.base.core.TransformEngine;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.MetaRule;
 import ca.uhn.fhir.jpa.starter.transfor.base.reference.structure.ReferenceCacheHandler;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
+import ca.uhn.fhir.jpa.starter.transfor.dto.comm.ResponseDto;
+import ca.uhn.fhir.jpa.starter.transfor.operation.code.ResponseStateCode;
 import ca.uhn.fhir.jpa.starter.transfor.util.TransformUtil;
 import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationRemoteConfigProperties;
 import ca.uhn.fhir.rest.annotation.Operation;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -88,6 +91,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 			JsonObject jsonObject = jsonElement.getAsJsonObject();
 			Queue<Map.Entry<String, JsonElement>> sortedQueue = transformUtil.sortingCreateResourceArgument(jsonObject);
 
+			// 2. 데이터 생성
 			Bundle bundle = new Bundle();
 			while(sortedQueue.size() != 0){
 				Map.Entry<String, JsonElement> entry = sortedQueue.poll();
@@ -99,8 +103,25 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 				}
 			}
 
-		}catch(Exception e) {
+			// 3. 결과 리턴
+			String retBundle = fn.newJsonParser().encodeResourceToString(bundle);
+			ResponseDto<String> responseDto = ResponseDto.<String>builder().success(ResponseStateCode.OK.getSuccess()).stateCode(ResponseStateCode.OK.getStateCode()).errorReason("-").body(retBundle).build();
+			ObjectMapper mapper = new ObjectMapper();
+			String jsonStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseDto);
 
+			retMessage = jsonStr;
+
+		}catch(Exception e) {
+			e.printStackTrace();
+			ResponseDto<String> responseDto = ResponseDto.<String>builder().success(ResponseStateCode.BAD_REQUEST.getSuccess()).stateCode(ResponseStateCode.BAD_REQUEST.getStateCode()).errorReason("-").body("-").build();
+			ObjectMapper mapper = new ObjectMapper();
+			String jsonStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseDto);
+			retMessage = jsonStr;
+		}finally{
+			theResponse.setCharacterEncoding("UTF-8");
+			theResponse.setContentType("text/plain");
+			theResponse.getWriter().write(retMessage);
+			theResponse.getWriter().close();
 		}
 	}
 
@@ -108,7 +129,6 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 		List<IBaseResource> retResourceList = new ArrayList<>();
 		JsonElement elements = entry.getValue();
 		JsonArray jsonArray = elements.getAsJsonArray();
-
 		for(int eachRowCount = 0; jsonArray.size() > eachRowCount; eachRowCount++){
 			JsonObject eachRowJsonObj = jsonArray.get(eachRowCount).getAsJsonObject();
 			try {
@@ -146,7 +166,8 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 						metaEngine.putCacheResource(metaRule, sourceObject, resource, null);
 					}
 
-				}catch(IllegalArgumentException e){
+				}catch( Exception e){
+					e.printStackTrace();
 					if(metaRule.getErrorHandleType().equals(ErrorHandleType.EXCEPTION)){
 						throw new IllegalArgumentException("[ERR] 데이터 형변환 과정에서 오류가 발생하였습니다.");
 					}else if(metaRule.getErrorHandleType().equals(ErrorHandleType.WARNING)){

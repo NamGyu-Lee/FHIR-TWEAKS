@@ -62,9 +62,16 @@ public class SampleTest {
 		"    * pid -> pid :: Organization.pid\n" +
 		"    * cret_no -> ord_dd :: -\n" +
 		"    * prcp_no -> prcp_no :: -\n";
+
+
+	String argMap2 = "* metadata\n" +
+		" * mapping\n" +
+		"  * error_policy = exception\n" +
+		"  * cacheKey = inst_cd, proc_corp_cd\n";
+
 	@Test
 	public void test3(){
-		MetaRule node = createMetaRule(argMap);
+		MetaRule node = createMetaRule(argMap2);
 		System.out.println(node.getCacheDataKey());
 		System.out.println(node.getReferenceNodeList().size());
 		System.out.println(node.getReferenceNodeList().get(0).getReferenceParamNodeList().get(0).getFhirTargetStr());
@@ -113,7 +120,7 @@ public class SampleTest {
 			}else if(line.contains("->")){
 				referenceParamNodeList.add(createReferenceParamNode(line));
 			}
-			if(!iterator.hasNext()){
+			if(!iterator.hasNext() && currentReferenceNode != null){
 				currentReferenceNode.setReferenceParamNodeList(referenceParamNodeList);
 				referenceNodeList.add(currentReferenceNode);
 			}

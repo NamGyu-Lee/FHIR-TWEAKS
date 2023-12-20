@@ -1,10 +1,29 @@
+* metadata
+ * mapping
+  * error_policy = exception
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+   * referenceResource
+    * target = PractitionerRole
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * prcp_dr_id -> ord_dr_id :: -
+   * referenceResource
+    * target = Patient
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * pid -> pid :: -
+-----
 * resourceType='Procedure'
 * id=(KEY)MERGE('PD', '.', Organization_id, '.', pid, '.', op_rsrv_no)
 * state='completed'
  * (profile).profile
   * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-procedure'
 * identifier
- * system=Organization_oid
+ * system=Organization_id
  * value=MERGE('PD', '.', Organization_id, '.', pid, '.', op_rsrv_no)
 * code
  * (coding).coding

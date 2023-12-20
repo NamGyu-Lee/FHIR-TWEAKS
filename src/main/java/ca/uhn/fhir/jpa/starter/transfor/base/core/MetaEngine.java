@@ -55,7 +55,6 @@ public class MetaEngine {
 			List<ReferenceNode> referenceNodeList = metaRule.getReferenceNodeList();
 			for(ReferenceNode refnode : referenceNodeList){
 				ErrorHandleType referenceErrorPolicyType = refnode.getErrorHandleType();
-
 				try {
 					// 1. 캐시에서 조회
 					ReferenceCache searchedCacheResource = this.findCachedResourceFromReferenceNode(refnode, source);
@@ -80,6 +79,7 @@ public class MetaEngine {
 					}
 
 				}catch(Exception e){ // TODO. 광범위한 에러 체커
+					e.printStackTrace();
 					if("exception".equals(metaErrorPolicyType.getStatus())){
 						throw new IllegalArgumentException("[ERR] Reference 를 생성하는 과정에서 오류가 발생하였습니다. " + e.getMessage());
 					}else if("warning".equals(metaErrorPolicyType.getStatus())){
@@ -93,6 +93,7 @@ public class MetaEngine {
 			}
 
 		}catch(Exception e){ // TODO. 광범위한 에러 체커
+			e.printStackTrace();
 			if("exception".equals(metaErrorPolicyType.getStatus())){
 				throw new IllegalArgumentException("[ERR] Reference 를 생성하는 과정에서 오류가 발생하였습니다. " + e.getMessage());
 			}else if("warning".equals(metaErrorPolicyType.getStatus())){
@@ -108,10 +109,11 @@ public class MetaEngine {
 		List<ReferenceParamNode> paramNodes = referenceNode.getReferenceParamNodeList();
 
 		// 2. reference param 데이터를 활용하여 캐시 조회
+		// target : source_data
 		try {
 			Map<String, String> requestConditionMap = new HashMap<>();
 			for (ReferenceParamNode node : paramNodes) {
-				requestConditionMap.put(node.getCacheTargetStr(), source.getString(node.getCacheTargetStr()));
+				requestConditionMap.put(node.getCacheTargetStr(), source.getString(node.getSourceStr()));
 			}
 
 		// 3. 데이터 조회
@@ -150,7 +152,6 @@ public class MetaEngine {
 	}
 
 	public boolean putCacheResource(MetaRule metaRule, JSONObject source, @Nullable IBaseResource createdResource, @Nullable Reference createdReference) throws IllegalArgumentException{
-
 		try {
 			// 1. Cache를 위한 고유 키 식별자 조회 및 정의
 			Map<String, String> bindingKeyMap = new HashMap<>();
@@ -172,7 +173,8 @@ public class MetaEngine {
 				return true;
 			}
 
-		}catch(JSONException e){
+		}catch(Exception e){
+			e.printStackTrace();
 			throw new IllegalArgumentException("[ERR] 캐시에서 데이터를 가져오려고 조회셋을 만드는 과정에서 오류가 발생하였습니다. " + e.getMessage() );
 		}
 	}

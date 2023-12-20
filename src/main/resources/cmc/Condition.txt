@@ -1,3 +1,29 @@
+* metadata
+ * mapping
+  * error_policy = exception
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+   * referenceResource
+    * target = PractitionerRole
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * ord_dr_id -> ord_dr_id :: -
+   * referenceResource
+    * target = Patient
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * pid -> pid :: -
+   * referenceResource
+    * target = Encounter
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * pid -> pid :: -
+    * ord_dd -> ord_dd :: -
+    * ord_dept_cd -> ord_dept_cd :: -
+-----
 * resourceType='Condition'
 * id=(KEY)MERGE(Organization_id, '.',  ord_dd, '.', ord_dept_cd, '.', pid, '.', diag_no)
 * meta
@@ -5,7 +31,7 @@
   * 'http://connectdtx.kr/fhir/StructureDefinition/connectdtx-condition'
   * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-condition-chief-complaint'
 * identifier
- * system=Organization_oid
+ * system=Organization_id
  * value=MERGE(Organization_id, '.',  ord_dd, '.', ord_dept_cd, '.', pid, '.', diag_no)
 * category
  * (coding).coding

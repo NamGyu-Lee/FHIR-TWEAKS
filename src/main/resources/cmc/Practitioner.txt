@@ -1,10 +1,20 @@
+* metadata
+ * mapping
+  * error_policy = exception
+  * cacheKey = inst_cd, ord_dr_id
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+-----
 * resourceType='Practitioner'
 * id=(KEY)MERGE(Organization_id, '.', ord_dr_id)
 * meta
  * (profile).profile
   * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-medical-doctor'
 * identifier
- * system=Organization_oid
+ * system=Organization_id
  * value=ord_dr_id
 * active='true'
 * (name).name

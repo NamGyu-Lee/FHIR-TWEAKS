@@ -1,3 +1,17 @@
+* metadata
+ * mapping
+  * error_policy = exception
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+   * referenceResource
+    * target = Patient
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * pid -> pid :: -
+-----
 * resourceType='AllergyIntolerance'
 * id=(KEY)MERGE('ALG', '.', Organization_id, '.', symp_genr_dd, '.', kostom_cd)
 * meta

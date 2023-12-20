@@ -1,3 +1,13 @@
+* metadata
+ * mapping
+  * error_policy = exception
+  * cacheKey = inst_cd, pid
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+-----
 * resourceType='Patient'
 * id=(KEY)MERGE(Organization_id, '.', pid)
 * meta

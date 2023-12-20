@@ -1,16 +1,44 @@
+* metadata
+ * mapping
+  * error_policy = exception
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+   * referenceResource
+    * target = PractitionerRole
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * prcp_dr_id -> ord_dr_id :: -
+   * referenceResource
+    * target = Patient
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * pid -> pid :: -
+   * referenceResource
+    * target = Encounter
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * pid -> pid :: -
+    * io_flag -> ord_type_cd :: -
+    * prcp_dd -> ord_dd :: -
+    * rgst_dept_cd -> ord_dept_cd :: -
+    * prcp_dr_id -> ord_dr_id :: -
+-----
 * resourceType='ServiceRequest'
 * id=(KEY)MERGE(Organization_id, '.',  pid, '.', prcp_no)
 * meta
  * (profile).profile
   * http://phis.co.kr/fhir/StructureDefinition/StructureDefinition-svccore-servicerequest
 * identifier
- * system=Organization_oid
+ * system=Organization_id
  * value=MERGE(Organization_id, '.',  pid, '.', prcp_no)
 * status='active'
 * intent='order'
 * code
  * (coding).coding
-  * system=Organization_oid
+  * system=Organization_id
   * code=prcp_cd
   * display=prcp_nm
 * requester

@@ -362,6 +362,8 @@ public class TransformEngine{
 				}
 			}
 
+			System.out.println("v : " + retJsonObject);
+
 			FhirContext context = new FhirContext(FhirVersionEnum.R4);
 			IBaseResource resource = context.newJsonParser().parseResource(retJsonObject.toString());
 
@@ -371,7 +373,7 @@ public class TransformEngine{
 			ourLog.info(" Operation Result : " + retJsonObject.toString());
 
 			return resource;
-		}catch(org.json.JSONException e){
+		}catch(Exception e){
 			e.printStackTrace();
 			throw new IllegalArgumentException("데이터를 변환하는 과정에서 오류가 발생하였습니다.");
 		}
