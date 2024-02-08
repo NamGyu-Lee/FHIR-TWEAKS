@@ -72,8 +72,6 @@ spring:
         command: down
         timeout: 1m
 
-
-
 hapi:
   fhir:
     ### This enables the swagger-ui at /fhir/swagger-ui/index.html as well as the /fhir/api-docs (see https://hapifhir.io/hapi-fhir/docs/server_plain/openapi.html)
@@ -208,7 +206,8 @@ hapi:
     tester:
       home:
         name: Local Tester
-        server_address: 'https://fhrdev.khmc.or.kr/fhir'
+        server_address: 'http://localhost:8080/fhir'
+        #server_address: 'https://fhrdev.khmc.or.kr/fhir'
         refuse_to_fetch_third_party_urls: false
         fhir_version: R4
         #validation:

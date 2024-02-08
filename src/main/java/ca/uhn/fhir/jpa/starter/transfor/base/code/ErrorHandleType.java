@@ -3,6 +3,7 @@ package ca.uhn.fhir.jpa.starter.transfor.base.code;
 /**
  * 2023. 12. 18. Reference 에 데이터를 열람하는 시점에
  * 데이터가 없거나, 오류가 발생한 경우의 대한 대응방안을 정의한다.
+ * 무시인 경우 reference 자체가 소거되서 FHIR 최종결과에 반영
  */
 public enum ErrorHandleType {
 	IGNORE("ignore"),

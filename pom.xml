@@ -299,7 +299,6 @@
             <scope>test</scope>
         </dependency>
 
-
         <!--
         For some reason JavaDoc crashed during site generation unless we have this dependency
         -->

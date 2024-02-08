@@ -10,7 +10,7 @@
     * target = PractitionerRole
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * prcp_dr_id -> ord_dr_id :: -
+    * ord_dr_id -> ord_dr_id :: -
    * referenceResource
     * target = Patient
     * depend_policy = exception
@@ -48,3 +48,17 @@
   * value=rfvl_lwlm_val
  * high
   * value=rfvl_uplm_val
+* component
+ * code
+  * (coding).coding
+   * system
+   * value
+ * value
+ * valueQuantity
+  * value=rslt_val
+  * unit=rslt_unit_cd
+ * (referenceRange).referenceRange
+  * low
+   * value=rfvl_lwlm_val
+  * high
+   * value=rfvl_uplm_val

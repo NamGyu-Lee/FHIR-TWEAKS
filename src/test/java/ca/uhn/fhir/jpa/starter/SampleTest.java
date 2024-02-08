@@ -4,12 +4,20 @@ import ca.uhn.fhir.jpa.starter.transfor.base.code.ErrorHandleType;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.MetaRule;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.ReferenceNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.ReferenceParamNode;
+import ca.uhn.fhir.jpa.starter.transfor.base.map.RuleNode;
+import ca.uhn.fhir.jpa.starter.transfor.base.util.MapperUtils;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import org.apache.commons.io.IOUtils;
+import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.junit.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.io.IOException;
 import java.util.*;
 
 @SpringBootTest
@@ -62,7 +70,6 @@ public class SampleTest {
 		"    * pid -> pid :: Organization.pid\n" +
 		"    * cret_no -> ord_dd :: -\n" +
 		"    * prcp_no -> prcp_no :: -\n";
-
 
 	String argMap2 = "* metadata\n" +
 		" * mapping\n" +
@@ -127,6 +134,48 @@ public class SampleTest {
 		}
 		metaRule.setReferenceNodeList(referenceNodeList);
 		return metaRule;
+	}
+
+	String argMap3 =
+		"* resourceType='Patient'\n" +
+			" * (test).test\n" +
+			"  * value=v1\n"+
+			"  * value=v1\n"+
+			"  * value=v1"
+	;
+
+	String source = "\"{organization\":[{\"proc_corp_cd\":\"urn:oid:1.2.410.100110.10.11100338\",\"hosp_flag\":\"01\",\"inst_cd\":\"012\",\"telno\":\"02-2258-5518\",\"hosp_addr\":\"서울 서초구  반포대로222(반포4동)\",\"hosp_nm\":\"가톨릭대학교 서울성모병원\",\"maptype\":\"CMC.Organization\",\"resourcetype\":\"Organization\",\"zipcd\":\"06591\"}]}";
+	@Test
+	public void arrayMapTest() throws IOException, JSONException {
+		// 맵 구성
+		List<RuleNode> nodeList = MapperUtils.createTree(argMap3);
+		MapperUtils.printRuleAndRuleTypeInNodeTree(nodeList.get(0));
+
+		// 소스 데이터 구성
+		// 1. 소스데이터의 Map.Entity 화
+		byte[] bytes = IOUtils.toByteArray(source);
+		String bodyData = new String(bytes);
+		JsonParser jsonParser = new JsonParser();
+		JsonElement jsonElement = jsonParser.parse(bodyData);
+		JsonObject jsonObject = jsonElement.getAsJsonObject();
+
+		Queue<Map.Entry<String, JsonElement>> sortedQueue = new LinkedList<>();
+		for(Map.Entry<String, JsonElement> eachEntry : jsonObject.entrySet()){
+				sortedQueue.add(eachEntry);
+		}
+		Map.Entry<String, JsonElement> entry = sortedQueue.poll();
+
+		JsonElement elements = entry.getValue();
+		JsonArray jsonArray = elements.getAsJsonArray();
+
+		JsonObject eachRowJsonObj = jsonArray.get(0).getAsJsonObject();
+		JSONObject sourceObject = new JSONObject(eachRowJsonObj.toString());
+
+		//transformEngine.transformDataToResource(mapScript, sourceObject);
+
+		// 2. 데이터 생성
+		//List<IBaseResource> baseResourceList = this.createResource(entry);
+
 	}
 
 	public static int getLevel(String line) {

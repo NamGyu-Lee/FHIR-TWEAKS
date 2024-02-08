@@ -57,5 +57,10 @@ public class RuleNode {
 		this.children.add(child);
 	}
 
+	public RuleNode copyNode(){
+		RuleNode cpNode = new RuleNode(this.getParent(), this.rule, this.level, this.isIdentifierNode);
+		return cpNode;
+	}
+
 
 }

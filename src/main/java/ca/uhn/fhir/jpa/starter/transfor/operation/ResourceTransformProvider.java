@@ -74,7 +74,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 	}
 
 	@Operation(
-		name="$tranform-resource-v3",
+		name="$tranform-resource-basic",
 		idempotent = false,
 		manualRequest = true,
 		manualResponse = true
@@ -166,7 +166,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 						metaEngine.putCacheResource(metaRule, sourceObject, resource, null);
 					}
 
-				}catch( Exception e){
+				}catch(Exception e){
 					e.printStackTrace();
 					if(metaRule.getErrorHandleType().equals(ErrorHandleType.EXCEPTION)){
 						throw new IllegalArgumentException("[ERR] 데이터 형변환 과정에서 오류가 발생하였습니다.");

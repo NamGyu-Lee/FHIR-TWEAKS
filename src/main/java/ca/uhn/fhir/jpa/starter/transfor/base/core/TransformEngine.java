@@ -61,11 +61,11 @@ public class TransformEngine{
 			}else if(ruleNode.getTransactionType().equals(TransactionType.COPY_STRING)){
 				target.put(ruleNode.getTargetElementNm(), ruleNode.getSourceReferenceNm().replaceAll("'", ""));
 			}else if(ruleNode.getTransactionType().equals(TransactionType.TRANSLATION)){
-				List<String> argumentParam = this.extractMultipleValues(ruleNode.getSourceReferenceNm());
+				List<String> argumentParam = MapperUtils.extractMultipleValues(ruleNode.getSourceReferenceNm());
 				String exchangedCodeValue = translationEngine.translateCode(argumentParam.get(0), argumentParam.get(1));
 				target.put(ruleNode.getTargetElementNm(), exchangedCodeValue);
 			}else if(ruleNode.getTransactionType().equals(TransactionType.COPY_WITH_DEFAULT)){
-				List<String> argumentParam = this.extractMultipleValues(ruleNode.getSourceReferenceNm());
+				List<String> argumentParam = MapperUtils.extractMultipleValues(ruleNode.getSourceReferenceNm());
 				boolean isNullData;
 				try{
 					if(source.get(argumentParam.get(0)) == null || source.get(argumentParam.get(0)) == ""){
@@ -87,7 +87,7 @@ public class TransformEngine{
 					target.put(ruleNode.getTargetElementNm(), source.get(argumentParam.get(0)));
 				}
 			}else if(ruleNode.getTransactionType().equals(TransactionType.SPLIT)){
-				List<String> argumentParam = this.extractMultipleValues(ruleNode.getSourceReferenceNm());
+				List<String> argumentParam = MapperUtils.extractMultipleValues(ruleNode.getSourceReferenceNm());
 				if(argumentParam.size() == 3){
 					target.put(ruleNode.getTargetElementNm(), ((String)source.get(argumentParam.get(0))).substring(Integer.parseInt(argumentParam.get(1)), Integer.parseInt(argumentParam.get(2))));
 				}else if(argumentParam.size() == 2){
@@ -96,7 +96,7 @@ public class TransformEngine{
 					throw new JSONException("Execute Rule 중에 예상치 못한 함수가 들어왔습니다. Split은 반드시 파라미터가 2개 혹은 3개여야합니다.");
 				}
 			}else if(ruleNode.getTransactionType().equals(TransactionType.MERGE)){
-				List<String> argumentParam = this.extractMultipleValues(ruleNode.getSourceReferenceNm());
+				List<String> argumentParam = MapperUtils.extractMultipleValues(ruleNode.getSourceReferenceNm());
 
 				String mergedStr = "";
 				for(String eachText : argumentParam){
@@ -113,7 +113,7 @@ public class TransformEngine{
 			}else if(ruleNode.getTransactionType().equals(TransactionType.UUID)){
 				target.put(ruleNode.getTargetElementNm(), UUID.randomUUID());
 			}else if(ruleNode.getTransactionType().equals(TransactionType.DATE)){
-				List<String> argumentParam = this.extractMultipleValues(ruleNode.getSourceReferenceNm());
+				List<String> argumentParam = MapperUtils.extractMultipleValues(ruleNode.getSourceReferenceNm());
 				if(argumentParam.size() != 3){
 					throw new IllegalArgumentException(" 룰 " + ruleNode.getRule() + " 의 파라미터가 누락되어 컨버전에 실패하였습니다.");
 				}
@@ -124,7 +124,7 @@ public class TransformEngine{
 
 				target.put(ruleNode.getTargetElementNm(), convertedDate);
 			}else if(ruleNode.getTransactionType().equals(TransactionType.CASE)){
-				List<String> argumentParam = this.extractMultipleValues(ruleNode.getSourceReferenceNm());
+				List<String> argumentParam = MapperUtils.extractMultipleValues(ruleNode.getSourceReferenceNm());
 				String argument = source.getString(argumentParam.get(0));
 				int argumentSize= argumentParam.size();
 				if(argumentSize % 2 != 1 || argumentSize == 1){
@@ -180,7 +180,7 @@ public class TransformEngine{
 
 			return activateTransNode;
 		}else{
-			// recursive
+			// recursive devide and conquar
 			// target = target(seperation + seperation)
 			MultiValueMap<String, JSONObject> retTargetList = new LinkedMultiValueMap<>();
 			for(RuleNode childNode : ruleNode.getChildren()){
@@ -227,7 +227,7 @@ public class TransformEngine{
 						}
 					}
 				}
-				
+
 				// [{"a":"1", "b":"2"}, {"a":"1", "b":"2"}] 의 병합
 				if(sameLevelGrapObject.size() > 2){
 					ourLog.info(" ㄴ 같은 레벨에 여러개의 Key 데이터가 존재하여 병합 수행 시작...");
@@ -305,6 +305,18 @@ public class TransformEngine{
 
 		// 1. 트리 생성
 		List<RuleNode> ruleNodeList = MapperUtils.createTree(script);
+		// logging
+		for(RuleNode eachRuleNode : ruleNodeList){
+			// DFS 기반 맵서칭
+			MapperUtils.printRuleAndRuleTypeInNodeTree(eachRuleNode);
+		}
+
+		ourLog.info("start...???");
+		// 1.1. 트리에 배열구조의 대한 추가 트리 구성 20240207
+		ruleNodeList = MapperUtils.createAdditionTreeForArray(ruleNodeList, source);
+		ourLog.info("end...???");
+
+		// logging
 		for(RuleNode eachRuleNode : ruleNodeList){
 			// DFS 기반 맵서칭
 			MapperUtils.printRuleAndRuleTypeInNodeTree(eachRuleNode);
@@ -377,20 +389,6 @@ public class TransformEngine{
 			e.printStackTrace();
 			throw new IllegalArgumentException("데이터를 변환하는 과정에서 오류가 발생하였습니다.");
 		}
-	}
-
-	public List<String> extractMultipleValues(String input) {
-		List<String> values = new ArrayList<>();
-		Pattern pattern = Pattern.compile("\\w+\\((.*)\\)");
-		Matcher matcher = pattern.matcher(input);
-
-		if (matcher.find()) {
-			String[] args = matcher.group(1).split(",\\s*");
-			for (String arg : args) {
-				values.add(arg.trim());
-			}
-		}
-		return values;
 	}
 
 	// 2023. 11. 28. 키관리의 유동화 처리

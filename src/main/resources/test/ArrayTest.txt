@@ -1,0 +1,15 @@
+* metadata
+ * mapping
+  * error_policy = exception
+  * referenceData
+-----
+* resourceType='ArrayTest'
+* (telecom).telecom
+ * value=telno
+ * def='bab'
+ * system=NVL(telType, 'phone')
+ * (castValue).castValue
+  * def='bab'
+* identifier
+ * system=Organization_id
+ * value=MERGE(test, '.',  test, '.', test, '.', test, '.', test)

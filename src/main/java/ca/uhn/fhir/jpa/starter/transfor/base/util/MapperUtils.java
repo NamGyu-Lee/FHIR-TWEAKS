@@ -1,19 +1,28 @@
 package ca.uhn.fhir.jpa.starter.transfor.base.util;
 
 import ca.uhn.fhir.jpa.starter.transfor.base.code.ErrorHandleType;
+import ca.uhn.fhir.jpa.starter.transfor.base.code.RuleType;
+import ca.uhn.fhir.jpa.starter.transfor.base.code.TransactionType;
+import ca.uhn.fhir.jpa.starter.transfor.base.core.TransformEngine;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.MetaRule;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.ReferenceNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.ReferenceParamNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.RuleNode;
 import org.checkerframework.common.value.qual.IntRange;
 import org.jetbrains.annotations.Range;
+import org.json.JSONObject;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** StructureMap 을 대체 할 수 있는 Map 을 구성하기위한 기준정의를 Node로 수행
  *  각 Node는 하나의 룰을 관리.
  */
 public class MapperUtils {
+
+	private static final org.slf4j.Logger ourLog = org.slf4j.LoggerFactory.getLogger(MapperUtils.class);
+
 	public static int getLevel(String line) {
 		int count = 0;
 		for (char c : line.toCharArray()) {
@@ -72,7 +81,7 @@ public class MapperUtils {
 				beforeNode.addChild(ruleNode);
 				currentParent = beforeNode;
 				currentLevel = level;
-			}else {
+			}else{
 				// 가장 첫노드는 자기 자신을 가르킴
 				ruleNode.setParent(ruleNode);
 				ruleNodes.add(ruleNode);
@@ -203,5 +212,118 @@ public class MapperUtils {
 		}else{
 			return parts[1].replaceAll("^\\n+", "");
 		}
+	}
+
+	/**
+	 * 2024. 02. 08. Array 대응 목적으로 구성한 
+	 * 사용자 입력의 Array 값이 param_v1 ... vn 으로 입력되는 경우 
+	 * 같은 구조로 Tree의 크기를 그만큼 키워주는 동작 수행
+	 *
+	 * @param ruleNodeList the rule node list
+	 * @param source       the source
+	 * @return the list
+	 */
+	public static List<RuleNode> createAdditionTreeForArray(List<RuleNode> ruleNodeList, JSONObject source){
+		ourLog.info(">> createAdditionTreeForArray start...");
+
+		List<RuleNode> retRuleNodeList = new ArrayList<>();
+		for (RuleNode eachRuleNode : ruleNodeList){
+			// arrayRule만 수행
+			if (!eachRuleNode.getRuleType().equals(RuleType.CREATE_ARRAY)) {
+				retRuleNodeList.add(eachRuleNode);
+				continue;
+			}
+
+			// 2024. 02. 07. Array 의 대한 Array 갯수만큼의 Rule Node 추가 기능 구성
+			// 카운트 갯수는 array create Rule 바로 아래가 index로 됨
+			List<RuleNode> createdChildNodeList = new ArrayList<>();
+			List<RuleNode> sourceChildNodeList = new ArrayList<>();
+			// swap
+			if(sourceChildNodeList.size() <= 0){
+				for(RuleNode originalNode : eachRuleNode.getChildren()){
+					sourceChildNodeList.add(originalNode);
+				}
+			}
+
+			boolean isUsermuxInputRule = false;
+			for (int i = 1; i < source.length(); i++) {
+				String searchIndexSourceReferenceName = sourceChildNodeList.get(0).getSourceReferenceNm() + "_v" + i;
+				if (source.has(searchIndexSourceReferenceName)) {
+					// Array Create Rule Node에 내부에 가진 Sourceref를 바꾼 뒤 추가 적재
+					for(RuleNode originalNode : sourceChildNodeList){
+						RuleNode copyNode = new RuleNode(originalNode.getParent(), originalNode.getRule(), originalNode.getLevel(), originalNode.isIdentifierNode());
+						RuleNode newArrayRule = createRuleSourceReferenceForArrayTypeData(copyNode, source, "_v" + i);
+						createdChildNodeList.add(newArrayRule);
+					}
+				}else{
+					isUsermuxInputRule = true;
+				}
+			}
+
+			if(isUsermuxInputRule){
+				ourLog.info("----- createdChildNodeList size : " + createdChildNodeList.size());
+				eachRuleNode.setChildren(createdChildNodeList);
+			}else{
+				// no active.
+			}
+			retRuleNodeList.add(eachRuleNode);
+		}
+
+		return retRuleNodeList;
+	}
+
+
+	// 배열화 된 SourceData의 A_1, A_2 식의 데이터로 구성함에 따라
+	// 가변적인 룰 구성을 위해 하위룰 모두에게 append_separator 를 붙여준다.
+	// rule.sourceReferenceName + append_separator
+	private static RuleNode createRuleSourceReferenceForArrayTypeData(RuleNode ruleNode, JSONObject source, String append_separator) {
+		RuleNode newNode = ruleNode.copyNode();
+		ourLog.info("exchange Ref Target Refer Source Data : " + ruleNode.getSourceReferenceNm());
+
+		// a = 'a' 같은경우 _v1 append 무시
+		RuleType rt = newNode.getRuleType();
+		TransactionType tt = newNode.getTransactionType();
+
+		ourLog.info(" allocated Rule Type : " + rt.name());
+		ourLog.info("each allocated type of transaction : " + tt.name());
+	   if (RuleType.CREATE_ARRAY.equals(newNode.getRuleType())){
+			ourLog.info("ARRAY IN ARRAY ... ");
+			// 해당 행에 대하여 재수행(순환함수)
+			createAdditionTreeForArray(newNode.getChildren(), source);
+		}else{
+			if (tt.equals(TransactionType.COPY_STRING)) {
+				// do nothing
+			} else if (tt.equals(TransactionType.COPY)) {
+				String exchangeReferenceForArray = newNode.getSourceReferenceNm() + append_separator;
+				newNode.setSourceReferenceNm(exchangeReferenceForArray);
+			} else if (tt.equals(TransactionType.CASE) || tt.equals(TransactionType.DATE) || tt.equals(TransactionType.COPY_WITH_DEFAULT) || tt.equals(TransactionType.SPLIT) || tt.equals(TransactionType.TRANSLATION) || tt.equals(TransactionType.MERGE)){
+				List<String> argumentParam = extractMultipleValues(ruleNode.getSourceReferenceNm());
+				String exchangeRef = argumentParam.get(0) + append_separator;
+				newNode.setSourceReferenceNm(newNode.getSourceReferenceNm().replaceAll(argumentParam.get(0), exchangeRef));
+			}
+		}
+
+		List<RuleNode> ruleNodeList = new ArrayList<>();
+		for(RuleNode eachChangeNode : newNode.getChildren()){
+			RuleNode node = createRuleSourceReferenceForArrayTypeData(eachChangeNode, source, append_separator);
+			ruleNodeList.add(node);
+		}
+		newNode.setChildren(ruleNodeList);
+
+		return newNode;
+	}
+
+	public static List<String> extractMultipleValues(String input) {
+		List<String> values = new ArrayList<>();
+		Pattern pattern = Pattern.compile("\\w+\\((.*)\\)");
+		Matcher matcher = pattern.matcher(input);
+
+		if (matcher.find()) {
+			String[] args = matcher.group(1).split(",\\s*");
+			for (String arg : args) {
+				values.add(arg.trim());
+			}
+		}
+		return values;
 	}
 }
