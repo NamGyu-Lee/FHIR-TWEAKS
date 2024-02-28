@@ -124,12 +124,10 @@ public class MetaEngine {
 		}
 	}
 
-
 	// TODO. 서버 내 Repo 에서 데이터 조회하기.
 	public ReferenceCache findResourceInRepo(ReferenceNode referenceNode, JSONObject source) throws IllegalArgumentException{
 		// 1. reference 에 데이터 읽기
 		List<ReferenceParamNode> paramNodes = referenceNode.getReferenceParamNodeList();
-
 		try{
 			// 2. 데이터 조회 조건 정의
 			Set<String> searchKey = new HashSet<>();
@@ -147,7 +145,6 @@ public class MetaEngine {
 		}catch(IllegalArgumentException e){
 
 		}
-
 		return null;
 	}
 

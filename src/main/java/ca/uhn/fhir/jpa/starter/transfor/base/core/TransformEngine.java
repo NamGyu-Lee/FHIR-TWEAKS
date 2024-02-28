@@ -229,8 +229,8 @@ public class TransformEngine{
 				}
 
 				// [{"a":"1", "b":"2"}, {"a":"1", "b":"2"}] 의 병합
-				if(sameLevelGrapObject.size() > 2){
-					ourLog.info(" ㄴ 같은 레벨에 여러개의 Key 데이터가 존재하여 병합 수행 시작...");
+				if(sameLevelGrapObject.size() >= 2){
+					ourLog.info(" ㄴ 같은 레벨에 여러개의 Key 데이터 구조의 대한 병합 수행 시작...");
 					int maxSize = 0;
 					for (List<JSONObject> innerList : sameLevelGrapObject) {
 						if (innerList.size() > maxSize) {
@@ -299,10 +299,14 @@ public class TransformEngine{
 		}
 	}
 
-	// 실제 동작함수
-	public IBaseResource transformDataToResource(String map, @NonNull JSONObject source){
+	/** 2024. 02. 27. 분개
+	 * Rule Node 를 생성해준다.
+	 *
+	 * @param map the map
+	 * @return the list
+	 */
+	public List<RuleNode> createRuleNodeTree(String map){
 		String script = MapperUtils.getSeparateMapScript(map, "transform");
-
 		// 1. 트리 생성
 		List<RuleNode> ruleNodeList = MapperUtils.createTree(script);
 		// logging
@@ -310,14 +314,19 @@ public class TransformEngine{
 			// DFS 기반 맵서칭
 			MapperUtils.printRuleAndRuleTypeInNodeTree(eachRuleNode);
 		}
+		return ruleNodeList;
+	}
+
+	// 실제 동작함수
+	public IBaseResource transformDataToResource(List<RuleNode> nonArrayedRuleNodeList, @NonNull JSONObject source){
 
 		ourLog.info("start...???");
 		// 1.1. 트리에 배열구조의 대한 추가 트리 구성 20240207
-		ruleNodeList = MapperUtils.createAdditionTreeForArray(ruleNodeList, source);
+		//List<RuleNode> ruleNodeList = MapperUtils.createAdditionTreeForArray(nonArrayedRuleNodeList, source);
 		ourLog.info("end...???");
 
 		// logging
-		for(RuleNode eachRuleNode : ruleNodeList){
+		for(RuleNode eachRuleNode : nonArrayedRuleNodeList){
 			// DFS 기반 맵서칭
 			MapperUtils.printRuleAndRuleTypeInNodeTree(eachRuleNode);
 		}
@@ -328,14 +337,14 @@ public class TransformEngine{
 		try {
 			JSONObject retJsonObject = new JSONObject();
 			JSONObject sourceObj = source;
-			for (RuleNode eachRuleNode : ruleNodeList) {
+			for (RuleNode eachRuleNode : nonArrayedRuleNodeList) {
 				ActivateTransNode activateTransNode = new ActivateTransNode();
 				activateTransNode.setRuleNode(eachRuleNode);
 				activateTransNode.setSource(sourceObj);
 				activateTransNode.setTarget(targetObject);
 				ActivateTransNode ret = recursiveActTransNode(activateTransNode);
 
-				// mergeRule
+				// 룰 병합
 				// 1. 같은 룰이 두개 이상 들어오면 Array처리하기
 				if(retJsonObject.length() != 0){
 					// 추가하려는 JSON 의 최상위 노드 조회
@@ -440,5 +449,4 @@ public class TransformEngine{
 
 		return retIdentifier;
 	}
-
 }

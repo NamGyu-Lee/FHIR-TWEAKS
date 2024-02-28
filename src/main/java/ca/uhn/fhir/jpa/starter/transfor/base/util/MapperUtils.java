@@ -60,8 +60,15 @@ public class MapperUtils {
 				isIdentifierNode = false;
 			}
 
+			boolean isArray = false;
+			if(line.contains("(Array)") || line.contains("(ARRAY)") || line.contains("(array)")){
+				isArray = true;
+			}else{
+				isArray = false;
+			}
+
 			// 맵 구조화
-			RuleNode ruleNode = new RuleNode(null, line.trim(), level, isIdentifierNode);
+			RuleNode ruleNode = new RuleNode(null, line.trim(), level, isIdentifierNode, isArray);
 			
 			if (level == currentLevel && currentParent != null) {
 				ruleNode.setParent(currentParent);
@@ -126,6 +133,14 @@ public class MapperUtils {
 					cacheKeySet.add(arg.trim());
 				}
 				metaRule.setCacheDataKey(cacheKeySet);
+			}else if(line.contains("mergeKey")){
+				String mergeKeySingleStr = line.split("=")[1].trim();
+				String[] mergeKeyArray = mergeKeySingleStr.split(",");
+				Set<String> mergeKeySet = new HashSet<>();
+				for(String arg : mergeKeyArray){
+					mergeKeySet.add(arg.trim());
+				}
+				metaRule.setMergeDataKey(mergeKeySet);
 			}else if(line.contains("referenceResource")){
 				if(currentReferenceNode != null) {
 					currentReferenceNode.setReferenceParamNodeList(referenceParamNodeList);
@@ -149,6 +164,13 @@ public class MapperUtils {
 		return metaRule;
 	}
 
+	/**
+	 * Create reference param node Using reference param node.
+	 *
+	 * @param scriptLine the script line
+	 * @return the reference param node
+	 * @throws IllegalArgumentException the illegal argument exception
+	 */
 	public static ReferenceParamNode createReferenceParamNode(String scriptLine) throws IllegalArgumentException{
 		String[] parts = scriptLine.split("->|::");
 		ReferenceParamNode refNode = new ReferenceParamNode();
@@ -179,7 +201,7 @@ public class MapperUtils {
 		for(int i = 0; nd.getLevel() > i; i++){
 			System.out.print(" ");
 		}
-		System.out.print(" > " + nd.getRuleType() + " : " + nd.getTransactionType() + " / " + nd.getRule());
+		System.out.print(" > " + nd.getRuleType() + " : " + nd.getTransactionType() + " / " + nd.getRule() + "  || source : " + nd.getSourceReferenceNm() + " || target : "+ nd.getTargetElementNm());
 		System.out.println();
 
 		if(nd.getChildren().size() == 0){
@@ -223,13 +245,16 @@ public class MapperUtils {
 	 * @param source       the source
 	 * @return the list
 	 */
+	// 순환함수
+	// TODO.
+	// ★ 보완필요. ruleNodeList, source, mergeKeySet
+	// 3가지 값을 활용하여 AdditionTree 구성
+	//
 	public static List<RuleNode> createAdditionTreeForArray(List<RuleNode> ruleNodeList, JSONObject source){
-		ourLog.info(">> createAdditionTreeForArray start...");
-
 		List<RuleNode> retRuleNodeList = new ArrayList<>();
 		for (RuleNode eachRuleNode : ruleNodeList){
 			// arrayRule만 수행
-			if (!eachRuleNode.getRuleType().equals(RuleType.CREATE_ARRAY)) {
+			if (!eachRuleNode.getRuleType().equals(RuleType.CREATE_ARRAY)){
 				retRuleNodeList.add(eachRuleNode);
 				continue;
 			}
@@ -246,13 +271,15 @@ public class MapperUtils {
 			}
 
 			boolean isUsermuxInputRule = false;
-			for (int i = 1; i < source.length(); i++) {
-				String searchIndexSourceReferenceName = sourceChildNodeList.get(0).getSourceReferenceNm() + "_v" + i;
+			for (int i = 1; i < sourceChildNodeList.size(); i++){
+				// 흠...
+				String searchIndexSourceReferenceName = sourceChildNodeList.get(0).getSourceReferenceNm() + "_" + i;
+
 				if (source.has(searchIndexSourceReferenceName)) {
 					// Array Create Rule Node에 내부에 가진 Sourceref를 바꾼 뒤 추가 적재
 					for(RuleNode originalNode : sourceChildNodeList){
-						RuleNode copyNode = new RuleNode(originalNode.getParent(), originalNode.getRule(), originalNode.getLevel(), originalNode.isIdentifierNode());
-						RuleNode newArrayRule = createRuleSourceReferenceForArrayTypeData(copyNode, source, "_v" + i);
+						RuleNode copyNode = new RuleNode(originalNode.getParent(), originalNode.getRule(), originalNode.getLevel(), originalNode.isIdentifierNode(), false);
+						RuleNode newArrayRule = createRuleSourceReferenceForArrayTypeData(copyNode, source, "_" + i);
 						createdChildNodeList.add(newArrayRule);
 					}
 				}else{
@@ -272,6 +299,85 @@ public class MapperUtils {
 		return retRuleNodeList;
 	}
 
+	// div conq
+	public static RuleNode createTreeForArrayWithRecursive(RuleNode ruleNode, JSONObject source){
+		List<RuleNode> childNodeList = ruleNode.getChildren();
+		System.out.println("active Start... childNode Size : " + childNodeList.size());
+
+		MapperUtils.printRuleAndRuleTypeInNodeTree(ruleNode);
+
+		int childNodeSize = childNodeList.size();
+
+		List<RuleNode> newChildNodeList = new ArrayList<>();
+
+		for(int i = 0; childNodeSize > i; i++){
+			System.out.println("---------------------------------------------");
+			System.out.println("NOW : " + childNodeList.get(i).getSourceReferenceNm());
+
+			if(childNodeList.get(i).getRuleType().equals(RuleType.TRANS)){
+				String ruleSourceReference = childNodeList.get(i).getSourceReferenceNm();
+				// TODO. 함수형의 데이터의 대한 복제 기능 필요
+				if(!childNodeList.get(0).getTransactionType().equals(TransactionType.COPY)){
+					ruleSourceReference =
+				}
+
+				System.out.println("childNodeList.get(i) is TransType.. then execute this : " + ruleSourceReference);
+				int countOfCreateNode = getSizeOfJSONObjectHasArray(ruleSourceReference, source);
+				System.out.println("source has a count of this :" + countOfCreateNode);
+
+				// 해당 룰이 여러개로 편재되어야 하는 경우 여러개로 추가생성
+				if(countOfCreateNode >= 1){
+					System.out.println(countOfCreateNode + " count found then.. ");
+					// 1~n 생성
+					int createNodeSize = 1;
+					while(countOfCreateNode > createNodeSize){
+						RuleNode newRule = childNodeList.get(i).copyNode();
+						System.out.println(countOfCreateNode + " create Rule.. " + newRule.getSourceReferenceNm() + "_" + createNodeSize);
+						newRule.setSourceReferenceNm(newRule.getSourceReferenceNm() + "_" + createNodeSize);
+						//ruleNode.addChild(newRule);
+						newChildNodeList.add(newRule);
+						createNodeSize++;
+					}
+					// 소거
+					//System.out.println("delete Node : " + childNodeList.get(i).getSourceReferenceNm());
+					//childNodeList.remove(i);
+				}else{
+					newChildNodeList.add(childNodeList.get(i));
+				}
+			}else{ // create 계열
+				// 룰이 하위 룰을 가지는 케이스인 경우 recursive for Swap
+				if(childNodeList.get(i).getChildren().size() >= 1){
+					System.out.println("하위 존재에 따른 처리 수행");
+					List<RuleNode> nodeList = childNodeList;
+					// 변환
+					newChildNodeList.add(createTreeForArrayWithRecursive(childNodeList.get(i), source));
+				}
+			}
+			// 반복문을 위한 사이즈 갱신
+			childNodeSize = childNodeList.size();
+			System.out.println("------------------------------------------------------- now child nude size : " + childNodeSize);
+		}
+
+		ruleNode.setChildren(newChildNodeList);
+
+		return ruleNode;
+	}
+
+	public static int getSizeOfJSONObjectHasArray(String key, JSONObject source){
+		for(int arrange = 1; arrange <= 999; arrange++){ // 안정성에 따라 999행 이상은 merge 될 수 없음.
+			String chkCol = key + "_" + arrange;
+			if(!source.has(chkCol) && arrange == 1){
+				// 없음
+				return -1;
+			}else if(!source.has(chkCol)){
+				// 특정 행 위치
+				return arrange;
+			}else{
+				// 있으니 유지
+			}
+		}
+		return -1;
+	}
 
 	// 배열화 된 SourceData의 A_1, A_2 식의 데이터로 구성함에 따라
 	// 가변적인 룰 구성을 위해 하위룰 모두에게 append_separator 를 붙여준다.
@@ -280,7 +386,7 @@ public class MapperUtils {
 		RuleNode newNode = ruleNode.copyNode();
 		ourLog.info("exchange Ref Target Refer Source Data : " + ruleNode.getSourceReferenceNm());
 
-		// a = 'a' 같은경우 _v1 append 무시
+		// a = 'a' 같은경우 _1 append 무시
 		RuleType rt = newNode.getRuleType();
 		TransactionType tt = newNode.getTransactionType();
 
@@ -326,4 +432,8 @@ public class MapperUtils {
 		}
 		return values;
 	}
+
+
+
+
 }

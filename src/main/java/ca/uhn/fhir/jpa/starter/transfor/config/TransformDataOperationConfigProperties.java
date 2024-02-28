@@ -7,7 +7,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-
 /** 2023. 11. 07.
  *  EMR 기반 등의 데이터의 대한 변환 후 FHIR로 적재하는 작업의 대한 설정을 정의한다.
  */

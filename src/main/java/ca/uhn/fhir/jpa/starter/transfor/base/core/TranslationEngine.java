@@ -50,8 +50,6 @@ public class TranslationEngine extends BaseJpaProvider {
 			String remoteUrl = customValidationRemoteConfigProperties.getRemoteURL();
 			IValidationSupport.LookupCodeResult resultRemoteServer = convert(source, null, null, codeUrl, remoteUrl);
 		}
-
-
 		throw new IllegalArgumentException("해당 코드를 찾을 수 없어 오류가 발생하였습니다. Source : " + source + " / CodeSystem URL :" + codeUrl);
 	}
 

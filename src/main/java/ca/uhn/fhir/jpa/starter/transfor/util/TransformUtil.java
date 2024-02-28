@@ -5,6 +5,7 @@ import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigPrope
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONException;
@@ -16,7 +17,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** 2023. 11. 27.
  * Transform 과정에서 Engine  기반, Client 기반 모두 활용 가능한 편의성 함수들의 대하여
@@ -85,7 +89,6 @@ public class TransformUtil {
 		return sortedQueue;
 	}
 
-
 	// 2023. 11. 14. Json Object 를 Map 으로 치환한다.
 	public static Map<String, String> convertJsonObjectToMap(JsonObject jsonObject) {
 		Gson gson = new Gson();
@@ -95,6 +98,97 @@ public class TransformUtil {
 		Map<String, Object> reqData = gson.fromJson(jsonObject, Map.class);
 		Map<String, String> data = reqData.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> convertObjectToString(e.getValue())));
 		return data;
+	}
+
+	/**
+	 * 2024. 02. 27.
+	 * Merge json object pattern.
+	 *
+	 * @param keySet          키로 구성할 키 셋.
+	 * @param mergeTargetKeySet     병합할 키 셋. 존재하지 않으면 키 외 전체를 boundKeySet으로 본다.
+	 * @param jsonElementList 대상(반드시 동일한 Json element 의 연속으로 본다)
+	 */
+	public static List<JsonObject> mergeJsonObjectPattern(Set<String> keySet, Set<String> mergeTargetKeySet, List<JsonElement> jsonElementList) {
+		Map<String, JsonObject> mergedMap = new HashMap<>();
+
+		// Bound Key Set 이 존재하지 않으면 키를 제외한 모든 값이 바인드 키 셋으로 정의한다.
+		if (mergeTargetKeySet.size() <= 0) {
+			Set<String> allKeyObjects = jsonElementList.get(0).getAsJsonObject().keySet();
+			for (String arg : allKeyObjects){
+				String argNoSeparateText = arg.replaceAll("_[0-9]", "");
+				if (!keySet.contains(argNoSeparateText)) {
+					mergeTargetKeySet.add(argNoSeparateText);
+				}
+			}
+		}
+
+		Map<String, Integer> arraySizeMap = new HashMap<>();
+		for (JsonElement element : jsonElementList){
+			JsonObject jsonObj = element.getAsJsonObject();
+			String keyValue = "";
+			for (String key : keySet) {
+				keyValue = keyValue + "|" + jsonObj.get(key);
+			}
+
+			// 인덱싱 탐색
+			boolean isAlreadyHas = mergedMap.containsKey(keyValue);
+			if (isAlreadyHas){
+				// 존재하면 병합
+				JsonObject befObject = mergedMap.get(keyValue);
+				int arrangeSize = arraySizeMap.get(keyValue);
+				if(arrangeSize == 1){
+					// 첫번째 중첩 시 첫번째 행의 데이터도 _N 값 추가
+					mergeJsonObjects(befObject, mergeJsonObject(mergeTargetKeySet, arrangeSize, befObject));
+					// 1행 추가에 따른 _N 이 없는 행 소거
+					for(String key : mergeTargetKeySet){
+						befObject.remove(key);
+					}
+				}
+				mergeJsonObjects(befObject, mergeJsonObject(mergeTargetKeySet, arrangeSize + 1, jsonObj));
+				mergedMap.put(keyValue, befObject);
+				arraySizeMap.put(keyValue, arrangeSize + 1);
+			} else {
+				// 비존재 시 추가
+				mergedMap.put(keyValue, jsonObj);
+				arraySizeMap.put(keyValue, 1);
+			}
+		}
+
+		List<JsonObject> valuesList = mergedMap.values().stream().collect(Collectors.toList());
+
+		return valuesList;
+	}
+
+	/**
+	 * 두개의 JsonArray 의 대하여 Set<String> 을 대상으로 컬럼이 있으면 _segNumber 로 생성해준다.
+	 *
+	 * @param boundKeySet the bound key set
+	 * @param segNumber   the seg number
+	 * @param source      the source
+	 * @return the json object
+	 */
+	private static JsonObject mergeJsonObject(Set<String> boundKeySet, int segNumber, JsonObject source) {
+		JsonObject retObject = new JsonObject();
+		Set<String> sourceSet = source.keySet();
+		for (String eachKey : sourceSet) {
+			if(boundKeySet.contains(eachKey) && segNumber == 1) {
+				System.out.println("segNumber Operation..! : " + eachKey);
+				retObject.add(eachKey + "_" + String.valueOf(segNumber), source.get(eachKey));
+			}else if(boundKeySet.contains(eachKey) && segNumber >= 2){
+				retObject.add(eachKey + "_" + String.valueOf(segNumber), source.get(eachKey));
+			}
+		}
+		return retObject;
+	}
+
+	/**
+	 * JSON Object 끼리 병합시켜준다.
+	 *
+	 * @param target the target
+	 * @param source the source
+	 */
+	public static void mergeJsonObjects(JsonObject target, JsonObject source) {
+		source.entrySet().forEach(entry -> target.add(entry.getKey(), entry.getValue()));
 	}
 
 	// Object를 String으로 치환하여 준다.

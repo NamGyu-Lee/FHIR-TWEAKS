@@ -1,11 +1,13 @@
 package ca.uhn.fhir.jpa.starter;
 
 import ca.uhn.fhir.jpa.starter.transfor.base.code.ErrorHandleType;
+import ca.uhn.fhir.jpa.starter.transfor.base.core.TransformEngine;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.MetaRule;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.ReferenceNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.ReferenceParamNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.RuleNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.util.MapperUtils;
+import ca.uhn.fhir.jpa.starter.transfor.util.TransformUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -19,11 +21,18 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+/**
+ * The type Sample test.
+ */
 @SpringBootTest
 public class SampleTest {
 	@Test
-	public void test(){
+	public void test() {
 		String arg = "{\n" +
 			"  \"success\" : \"true\",\n" +
 			"  \"stateCode\" : 200,\n" +
@@ -43,7 +52,7 @@ public class SampleTest {
 	}
 
 	@Test
-	public void test2(){
+	public void test2() {
 		String arg = "{";
 		arg = arg + "\"svcreqkey\" : \"" + "ab" + "\",";
 		arg = arg + "\"reason\" : \"" + "ab" + "\",";
@@ -53,23 +62,23 @@ public class SampleTest {
 
 	String argMap =
 		"* metadata\n" +
-		" * mapping\n" +
-		"  * error_policy = exception\n" +
-		"  * cacheKey = pid, cret_no, prcp_no\n" +
-		"  * referenceData\n" +
-		"   * referenceResource\n" +
-		"    * target = Patient\n" +
-		"    * depend_policy = warning\n" +
-		"    * v1 -> j1 :: Organization.pid\n" +
-		"    * v2 -> j2 :: -\n" +
-		"    * v3 -> j3 :: -\n"+
-		"    * v4 -> j4 :: -\n"+
-		"   * referenceResource\n" +
-		"    * target = Patient\n" +
-		"    * depend_policy = warning\n" +
-		"    * pid -> pid :: Organization.pid\n" +
-		"    * cret_no -> ord_dd :: -\n" +
-		"    * prcp_no -> prcp_no :: -\n";
+			" * mapping\n" +
+			"  * error_policy = exception\n" +
+			"  * cacheKey = pid, cret_no, prcp_no\n" +
+			"  * referenceData\n" +
+			"   * referenceResource\n" +
+			"    * target = Patient\n" +
+			"    * depend_policy = warning\n" +
+			"    * v1 -> j1 :: Organization.pid\n" +
+			"    * v2 -> j2 :: -\n" +
+			"    * v3 -> j3 :: -\n" +
+			"    * v4 -> j4 :: -\n" +
+			"   * referenceResource\n" +
+			"    * target = Patient\n" +
+			"    * depend_policy = warning\n" +
+			"    * pid -> pid :: Organization.pid\n" +
+			"    * cret_no -> ord_dd :: -\n" +
+			"    * prcp_no -> prcp_no :: -\n";
 
 	String argMap2 = "* metadata\n" +
 		" * mapping\n" +
@@ -77,7 +86,7 @@ public class SampleTest {
 		"  * cacheKey = inst_cd, proc_corp_cd\n";
 
 	@Test
-	public void test3(){
+	public void test3() {
 		MetaRule node = createMetaRule(argMap2);
 		System.out.println(node.getCacheDataKey());
 		System.out.println(node.getReferenceNodeList().size());
@@ -93,41 +102,41 @@ public class SampleTest {
 		ReferenceNode currentReferenceNode = null;
 
 		Iterator<String> iterator = Arrays.asList(script.split("\n")).iterator();
-		while(iterator.hasNext()) {
+		while (iterator.hasNext()) {
 			String line = iterator.next();
 			int level = getLevel(line);
 			line.replace("*", "");
 			line = line.replaceAll("\\s*=\\s*", "=");
 			line = line.trim();
 
-			if(line.contains("error_policy=")) {
+			if (line.contains("error_policy=")) {
 				metaRule.setErrorHandleType(ErrorHandleType.searchErrorHandleType(line.split("=")[1].trim()));
-			}else if(line.contains("cacheKey")){
+			} else if (line.contains("cacheKey")) {
 				String cacheKeySingleStr = line.split("=")[1].trim();
 
 				System.out.println(cacheKeySingleStr);
 				String[] cacheKeyArray = cacheKeySingleStr.split(",");
 				System.out.println(cacheKeyArray);
 				Set<String> cacheKeySet = new HashSet<>();
-				for(String arg : cacheKeyArray){
+				for (String arg : cacheKeyArray) {
 					cacheKeySet.add(arg.trim());
 				}
 				metaRule.setCacheDataKey(cacheKeySet);
-			}else if(line.contains("referenceResource")){
-				if(currentReferenceNode != null) {
+			} else if (line.contains("referenceResource")) {
+				if (currentReferenceNode != null) {
 					currentReferenceNode.setReferenceParamNodeList(referenceParamNodeList);
 					referenceNodeList.add(currentReferenceNode);
 				}
 				currentReferenceNode = new ReferenceNode();
 				referenceParamNodeList = new ArrayList<>();
-			}else if(line.contains("target=")){
+			} else if (line.contains("target=")) {
 				currentReferenceNode.setTargetResource(line.split("=")[1].trim());
-			}else if(line.contains("error_policy=")){
+			} else if (line.contains("error_policy=")) {
 				currentReferenceNode.setErrorHandleType(ErrorHandleType.searchErrorHandleType(line.split("=")[1]));
-			}else if(line.contains("->")){
+			} else if (line.contains("->")) {
 				referenceParamNodeList.add(createReferenceParamNode(line));
 			}
-			if(!iterator.hasNext() && currentReferenceNode != null){
+			if (!iterator.hasNext() && currentReferenceNode != null) {
 				currentReferenceNode.setReferenceParamNodeList(referenceParamNodeList);
 				referenceNodeList.add(currentReferenceNode);
 			}
@@ -139,12 +148,12 @@ public class SampleTest {
 	String argMap3 =
 		"* resourceType='Patient'\n" +
 			" * (test).test\n" +
-			"  * value=v1\n"+
-			"  * value=v1\n"+
-			"  * value=v1"
-	;
+			"  * value=v1\n" +
+			"  * value=v1\n" +
+			"  * value=v1";
 
 	String source = "\"{organization\":[{\"proc_corp_cd\":\"urn:oid:1.2.410.100110.10.11100338\",\"hosp_flag\":\"01\",\"inst_cd\":\"012\",\"telno\":\"02-2258-5518\",\"hosp_addr\":\"서울 서초구  반포대로222(반포4동)\",\"hosp_nm\":\"가톨릭대학교 서울성모병원\",\"maptype\":\"CMC.Organization\",\"resourcetype\":\"Organization\",\"zipcd\":\"06591\"}]}";
+
 	@Test
 	public void arrayMapTest() throws IOException, JSONException {
 		// 맵 구성
@@ -160,8 +169,8 @@ public class SampleTest {
 		JsonObject jsonObject = jsonElement.getAsJsonObject();
 
 		Queue<Map.Entry<String, JsonElement>> sortedQueue = new LinkedList<>();
-		for(Map.Entry<String, JsonElement> eachEntry : jsonObject.entrySet()){
-				sortedQueue.add(eachEntry);
+		for (Map.Entry<String, JsonElement> eachEntry : jsonObject.entrySet()) {
+			sortedQueue.add(eachEntry);
 		}
 		Map.Entry<String, JsonElement> entry = sortedQueue.poll();
 
@@ -187,12 +196,98 @@ public class SampleTest {
 		return count;
 	}
 
-	public static ReferenceParamNode createReferenceParamNode(String scriptLine) throws IllegalArgumentException{
-			String[] parts = scriptLine.split("->|::");
-			ReferenceParamNode refNode = new ReferenceParamNode();
-			refNode.setSourceStr(parts[0].trim());
-			refNode.setCacheTargetStr(parts[1].trim());
-			refNode.setFhirTargetStr(parts[2].trim());
-			return refNode;
+	public static ReferenceParamNode createReferenceParamNode(String scriptLine) throws IllegalArgumentException {
+		String[] parts = scriptLine.split("->|::");
+		ReferenceParamNode refNode = new ReferenceParamNode();
+		refNode.setSourceStr(parts[0].trim());
+		refNode.setCacheTargetStr(parts[1].trim());
+		refNode.setFhirTargetStr(parts[2].trim());
+		return refNode;
 	}
+
+	@Test
+	public void test4() {
+		String arg1 = "{\n" +
+			"  \"success\" : \"true\",\n" +
+			"  \"stateCode\" : 200,\n" +
+			"  \"errorReason\" : \"-\",\n" +
+			"  \"body\" : 200,\n" +
+			"  \"detail\" : 111,\n" +
+			"  \"code\" : \"https\",\n" +
+			"  \"value\" : \"values\",\n" +
+			"  \"dv\" : \"vvv1\"\n" +
+			"}\n";
+
+		String arg2 = "{\n" +
+			"  \"success\" : \"true\",\n" +
+			"  \"stateCode\" : 200,\n" +
+			"  \"errorReason\" : \"-\",\n" +
+			"  \"body\" : 200,\n" +
+			"  \"detail\" : 323\n" +
+			"}\n";
+
+		String arg3 = "{\n" +
+			"  \"success\" : \"true\",\n" +
+			"  \"stateCode\" : 200,\n" +
+			"  \"errorReason\" : \"-\",\n" +
+			"  \"body\" : 200,\n" +
+			"  \"detail\" : 121,\n" +
+			"  \"code\" : \"https\",\n" +
+			"  \"value\" : \"values\",\n" +
+			"  \"dv\" : \"vvasdfv2\"\n" +
+			"}\n";
+
+		String arg4 = "{\n" +
+			"  \"success\" : \"true\",\n" +
+			"  \"stateCode\" : 2030,\n" +
+			"  \"errorReason\" : \"-\",\n" +
+			"  \"body\" : 200,\n" +
+			"  \"detail\" : 121,\n" +
+			"  \"code\" : \"htadsftps\",\n" +
+			"  \"value\" : \"values\",\n" +
+			"  \"dv\" : \"vvadfsv2\"\n" +
+			"}\n";
+
+		// 키
+		Set<String> keySet = Set.of("success", "stateCode", "errorReason");
+
+		// 실질키
+		Set<String> boundKeySet = Set.of("body", "detail", "code", "value");
+
+		List<JsonElement> elementList = new ArrayList<>();
+		JsonParser parser = new JsonParser();
+
+		JsonElement element = parser.parse(arg1);
+		elementList.add(element);
+
+		element = parser.parse(arg2);
+		elementList.add(element);
+
+		element = parser.parse(arg3);
+		elementList.add(element);
+
+		element = parser.parse(arg4);
+		elementList.add(element);
+
+		element = parser.parse(arg3);
+		elementList.add(element);
+
+		// 2024. 02. 27. 테스트 작업 완료에 따른 추가 수정
+		System.out.println("-- 1");
+		System.out.println(TransformUtil.mergeJsonObjectPattern(keySet, boundKeySet, elementList));
+
+		System.out.println("-- 2");
+		System.out.println(TransformUtil.mergeJsonObjectPattern(keySet, new HashSet<String>(), elementList));
+		try {
+			String v = TransformUtil.mergeJsonObjectPattern(keySet, new HashSet<String>(), elementList).get(1).toString();
+			System.out.println(v);
+			JSONObject jsonObject = new JSONObject(v);
+			System.out.println(" VVV : " + MapperUtils.getSizeOfJSONObjectHasArray("body", jsonObject));
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+
 }
+
+

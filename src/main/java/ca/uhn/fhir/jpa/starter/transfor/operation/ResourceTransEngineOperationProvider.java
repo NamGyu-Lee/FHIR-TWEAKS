@@ -3,6 +3,7 @@ package ca.uhn.fhir.jpa.starter.transfor.operation;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.jpa.provider.BaseJpaProvider;
 import ca.uhn.fhir.jpa.starter.transfor.base.core.TransformEngine;
+import ca.uhn.fhir.jpa.starter.transfor.base.map.RuleNode;
 import ca.uhn.fhir.jpa.starter.transfor.code.ResourceReferenceCode;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
 import ca.uhn.fhir.jpa.starter.transfor.base.reference.structure.ReferenceDataMatcher;
@@ -35,7 +36,7 @@ import java.util.*;
 /** 2023 . 11. 27.
  *  FHIR의 데이터 생성의 대하여 TransformEngine 의 기능을 활용하여 서비스를 구성한다.
  *  사용자에게 서비스를 제공하는 Controller 역할을 수행한다.
- * (신) 모델. 유동적 구성 가능 모델  ver 2.0
+ *  old 모델. 유동적 구성 가능 모델  ver 2.0
  */
 public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 
@@ -89,6 +90,7 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 			JsonElement jsonElement = jsonParser.parse(bodyData);
 			JsonObject jsonObject = jsonElement.getAsJsonObject();
 
+			// sorting
 			Queue<Map.Entry<String, JsonElement>> sortedQueue = transformUtil.sortingCreateResourceArgument(jsonObject);
 
 			// 실질적인 변환 부분
@@ -99,7 +101,7 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 			Bundle bundle = new Bundle();
 			while(sortedQueue.size() != 0){
 				Map.Entry<String, JsonElement> entry = sortedQueue.poll();
-				List<IBaseResource> baseResourceList = this.createResource(entry);
+				List<IBaseResource> baseResourceList =  new ArrayList<>(); // this.createResource(entry);
 				for(IBaseResource resource : baseResourceList){
 					Bundle.BundleEntryComponent comp = new Bundle.BundleEntryComponent();
 					comp.setResource((Resource)resource);
@@ -132,30 +134,55 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 		}
 	}
 
+	/*
 	private List<IBaseResource> createResource(Map.Entry<String, JsonElement> entry){
 		List<IBaseResource> retResourceList = new ArrayList<>();
 		JsonElement elements = entry.getValue();
 		JsonArray jsonArray = elements.getAsJsonArray();
 
+		// 리소스 병합 수행
+		// 리소스 생성요청별 맵 구성
+		// Resource : MapType 을 1:1로 고정
+		JsonObject searchFirstSourceData = jsonArray.get(0).getAsJsonObject();
+		String mapScript = "";
+		String mapType = "";
+		try {
+			JSONObject sourceObject = new JSONObject(searchFirstSourceData.toString());
+			mapType = sourceObject.getString("maptype");
+			if(mapType == null){
+				ourLog.error("[ERR] 해당 리소스에 MapType이 없습니다.");
+				throw new IllegalArgumentException("[ERR] 해당 리소스에 MapType이 없습니다.");
+			}else{
+				mapScript = TransformUtil.getMap(mapType);
+			}
+			
+		}catch(JSONException e){
+			throw new IllegalArgumentException("[ERR] Source 데이터를 조회하는 시점에서 JSONException 오류가 발생하였습니다.");
+		}
+
+		//  2) Map 구성
+		List<RuleNode> ruleNodeList = transformEngine.createRuleNodeTree(mapScript);
+		if(mapScript == "" || mapScript == null || mapType == "" || mapType == null){
+			throw new IllegalArgumentException("[ERR] Map이 조회되지 않았습니다.");
+		}
+		Set<String> keySet =
+		Set<String> mergeKeySet =
+
+		// 3) Map을 통한 데이터 merge 수행
+		List<JsonObject> jsonObjectList = new ArrayList<>();
+		for(int eachRowCount = 0; jsonArray.size() > eachRowCount; eachRowCount++){
+			jsonObjectList.add(jsonArray.get(eachRowCount).getAsJsonObject());
+		}
+		TransformUtil.mergeJsonObjectPattern(keySet, boundKeySet, jsonObjectList);
+
+		// 리소스 개별 생성 수행시작
 		for(int eachRowCount = 0; jsonArray.size() > eachRowCount; eachRowCount++){
 			JsonObject eachRowJsonObj = jsonArray.get(eachRowCount).getAsJsonObject();
 			try {
 				// 각 오브젝트별 동작 수행 시작
 				JSONObject sourceObject = new JSONObject(eachRowJsonObj.toString());
 
-				// 1. 매핑 전 사전준비
-				//  1) 맵 조회
-				String mapType = sourceObject.getString("maptype");
-				String mapScript = "";
-				if(mapType == null){
-					ourLog.error("[ERR] 해당 리소스에 MapType이 없습니다.");
-					continue; // 테스트용.
-					//throw new IllegalArgumentException("[ERR] 해당 리소스에 MapType이 없습니다.");
-				}else{
-					mapScript = TransformUtil.getMap(mapType);
-				}
-
-				//  2) 리소스별 필요 레퍼런스 추가
+				//  3) 리소스별 필요 레퍼런스 추가
 				try {
 					sourceObject = this.settingSourceWithReferenceSet(mapType, sourceObject);
 				}catch(IllegalArgumentException | JSONException e){
@@ -181,8 +208,9 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 				loggingInDebugMode("----");
 
 				// 2. 매핑 수행
+
 				//  1) Resource 생성
-				IBaseResource resource = transformEngine.transformDataToResource(mapScript, sourceObject);
+				IBaseResource resource = transformEngine.transformDataToResource(ruleNodeList, sourceObject);
 
 				// 3. 생성
 				loggingInDebugMode("----");
@@ -205,6 +233,7 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 
 		return retResourceList;
 	}
+	 */
 
 	/**
 	 * 2023. 11. 28. 데이터를 생성하기 전 Reference 를 등록한다.

@@ -6,7 +6,9 @@ import ca.uhn.fhir.jpa.starter.transfor.base.code.ErrorHandleType;
 import ca.uhn.fhir.jpa.starter.transfor.base.core.MetaEngine;
 import ca.uhn.fhir.jpa.starter.transfor.base.core.TransformEngine;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.MetaRule;
+import ca.uhn.fhir.jpa.starter.transfor.base.map.RuleNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.reference.structure.ReferenceCacheHandler;
+import ca.uhn.fhir.jpa.starter.transfor.base.util.MapperUtils;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
 import ca.uhn.fhir.jpa.starter.transfor.dto.comm.ResponseDto;
 import ca.uhn.fhir.jpa.starter.transfor.operation.code.ResponseStateCode;
@@ -37,8 +39,8 @@ import java.util.*;
  *  2023. 12. 15. Resource의 Transform
  *   Reference, Data 기조로 구성을 나누어 재구성.
  *
- *
- *  ver 3.0
+ *  2024. 02. 28. array 처리를 위한 작업 시작. - ver 4.0
+ *  ver 4.0
  */
 public class ResourceTransformProvider extends BaseJpaProvider {
 	private static final Logger ourLog = LoggerFactory.getLogger(ResourceTransformProvider.class);
@@ -89,6 +91,8 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 			JsonParser jsonParser = new JsonParser();
 			JsonElement jsonElement = jsonParser.parse(bodyData);
 			JsonObject jsonObject = jsonElement.getAsJsonObject();
+
+			// 1. sorting
 			Queue<Map.Entry<String, JsonElement>> sortedQueue = transformUtil.sortingCreateResourceArgument(jsonObject);
 
 			// 2. 데이터 생성
@@ -129,43 +133,72 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 		List<IBaseResource> retResourceList = new ArrayList<>();
 		JsonElement elements = entry.getValue();
 		JsonArray jsonArray = elements.getAsJsonArray();
+
+		// 1. 리소스 병합 수행
+		// 리소스 생성별 맵 구성
+		// Resource : MapType 을 1:1로 고정
+		JsonObject searchFirstSourceData = jsonArray.get(0).getAsJsonObject();
+		String mapScript = "";
+		String mapType = "";
+		try {
+			JSONObject sourceObject = new JSONObject(searchFirstSourceData.toString());
+			mapType = sourceObject.getString("maptype");
+			if(mapType == null){
+				ourLog.error("[ERR] 해당 리소스에 MapType이 없습니다.");
+				throw new IllegalArgumentException("[ERR] 해당 리소스에 MapType이 없습니다.");
+			}else{
+				mapScript = TransformUtil.getMap(mapType);
+			}
+
+		}catch(JSONException e){
+			throw new IllegalArgumentException("[ERR] Source 데이터를 조회하는 시점에서 JSONException 오류가 발생하였습니다.");
+		}
+
+		// 2.1. metaRule 구성
+		MetaRule metaRule = metaEngine.getMetaData(mapScript);
+		Set<String> keySet = metaRule.getCacheDataKey();
+		Set<String> mergeDataKeySet = metaRule.getMergeDataKey();
+
+		// 2.2. metaRule 기반의 Source 데이터 Merge 준비
+		List<JsonElement> jsonElementList = new ArrayList<>();
 		for(int eachRowCount = 0; jsonArray.size() > eachRowCount; eachRowCount++){
-			JsonObject eachRowJsonObj = jsonArray.get(eachRowCount).getAsJsonObject();
+			jsonElementList.add(jsonArray.get(eachRowCount));
+		}
+
+		// 2.3.2. Source 의 Merge 수행
+		List<JsonObject> sourceDataJsonList = TransformUtil.mergeJsonObjectPattern(keySet, mergeDataKeySet, jsonElementList);
+
+		// 2.4. 데이터 조회
+		for(JsonObject eachRowJsonObj : sourceDataJsonList){
 			try {
 				// 각 오브젝트별 동작 수행 시작
 				JSONObject sourceObject = new JSONObject(eachRowJsonObj.toString());
 
-				// 1. 매핑 전 사전준비
-				//  1) 맵 조회
-				String mapType = sourceObject.getString("maptype");
-				String mapScript = "";
-				if(mapType == null){
-					ourLog.error("[ERR] 해당 리소스에 MapType이 없습니다.");
-					continue; // 테스트용.
-					//throw new IllegalArgumentException("[ERR] 해당 리소스에 MapType이 없습니다.");
-				}else{
-					mapScript = TransformUtil.getMap(mapType);
-				}
-
-				MetaRule metaRule = metaEngine.getMetaData(mapScript);
 				try {
-					// 2. 맵단위 메타데이터 조회
+					 // 4.1. 매 회별 맵 구성
+					List<RuleNode> ruleNodeList = transformEngine.createRuleNodeTree(mapScript);
+					if(mapScript == "" || mapScript == null || mapType == "" || mapType == null){
+						throw new IllegalArgumentException("[ERR] Map이 조회되지 않았습니다.");
+					}
 
-					// 3. 리소스별 필요 레퍼런스 추가
-					metaEngine.setReference(metaRule, sourceObject);
+					// 병합 활용 맵 재생성
+					for(int j = 0; ruleNodeList.size() > j; j++){
+						System.out.println("------------------");
+						ruleNodeList.set(j, MapperUtils.createTreeForArrayWithRecursive(ruleNodeList.get(j), sourceObject));
+						System.out.println("------------------");
+					}
 
-					// 4. FHIR 데이터 생성
-					IBaseResource resource = transformEngine.transformDataToResource(mapScript, sourceObject);
+					// 2.4.1. FHIR 데이터 생성
+					IBaseResource resource = transformEngine.transformDataToResource(ruleNodeList, sourceObject);
 
-					// 5. 로깅
+					// 2.4.2. 로깅
 					loggingInDebugMode(" > [DEV] Created THis Resource : " + this.getContext().newJsonParser().encodeResourceToString(resource));
 					retResourceList.add(resource);
 
-					// 6. 캐시 처리
+					// 2.4.3. 캐시 처리
 					if(metaRule.getCacheDataKey().size() != 0){
 						metaEngine.putCacheResource(metaRule, sourceObject, resource, null);
 					}
-
 				}catch(Exception e){
 					e.printStackTrace();
 					if(metaRule.getErrorHandleType().equals(ErrorHandleType.EXCEPTION)){

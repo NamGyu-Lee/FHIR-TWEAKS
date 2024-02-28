@@ -28,6 +28,8 @@ public class MetaRule {
 
 	private Set<String> cacheDataKey;
 
+	private Set<String> mergeDataKey;
+
 	public MetaRule(){
 		referenceNodeList = new ArrayList<>();
 		cacheDataKey = new HashSet<>();

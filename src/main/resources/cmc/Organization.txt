@@ -2,6 +2,7 @@
  * mapping
   * error_policy = exception
   * cacheKey = inst_cd
+  * mergeKey = telType, telno
 -----
 * resourceType='Organization'
 * id=(KEY)SPLIT(proc_corp_cd, 26)
