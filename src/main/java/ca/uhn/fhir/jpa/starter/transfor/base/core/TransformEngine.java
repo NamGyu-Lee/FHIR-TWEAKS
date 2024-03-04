@@ -175,7 +175,7 @@ public class TransformEngine{
 		// 하위 없으면 반환.
 		if(activateTransNode.getRuleNode().getChildren().size() == 0){
 			ourLog.info("--------------------------------=END NODE=--------------------------");
-			ourLog.info(" ㄴ Rule : " + ruleNode.getRule());
+			ourLog.info(" ㄴ Rule : " + ruleNode.getRule() + " / " + ruleNode.getSourceReferenceNm() + " to " + ruleNode.getTargetElementNm());
 			ourLog.info(" ㄴ target Data : " + target);
 
 			return activateTransNode;

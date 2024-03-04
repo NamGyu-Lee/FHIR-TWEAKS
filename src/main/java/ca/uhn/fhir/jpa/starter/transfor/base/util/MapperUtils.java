@@ -307,44 +307,68 @@ public class MapperUtils {
 		MapperUtils.printRuleAndRuleTypeInNodeTree(ruleNode);
 
 		int childNodeSize = childNodeList.size();
-
 		List<RuleNode> newChildNodeList = new ArrayList<>();
-
 		for(int i = 0; childNodeSize > i; i++){
 			System.out.println("---------------------------------------------");
 			System.out.println("NOW : " + childNodeList.get(i).getSourceReferenceNm());
 
 			if(childNodeList.get(i).getRuleType().equals(RuleType.TRANS)){
-				String ruleSourceReference = childNodeList.get(i).getSourceReferenceNm();
-				// TODO. 함수형의 데이터의 대한 복제 기능 필요
-				if(!childNodeList.get(0).getTransactionType().equals(TransactionType.COPY)){
-					ruleSourceReference =
-				}
+				String childRuleSourceReference = childNodeList.get(i).getSourceReferenceNm();
+				TransactionType childRuleTrasType = childNodeList.get(i).getTransactionType();
+				// new
+				System.out.println("childNodeList.get(i) is TransType.. then execute this : " + childRuleSourceReference);
+				int countOfCreateNode = 1;
+				if(childRuleTrasType.equals(TransactionType.COPY)){
+					countOfCreateNode = getSizeOfJSONObjectHasArray(childRuleSourceReference, source);
+					// act
+					if(countOfCreateNode >= 1){
+						System.out.println(countOfCreateNode + " count found then.. ");
+						int createNodeSize = 1;
+						while(countOfCreateNode > createNodeSize){
+							RuleNode newRule = childNodeList.get(i).copyNode();
+							newRule.setSourceReferenceNm(newRule.getSourceReferenceNm() + "_" + createNodeSize);
 
-				System.out.println("childNodeList.get(i) is TransType.. then execute this : " + ruleSourceReference);
-				int countOfCreateNode = getSizeOfJSONObjectHasArray(ruleSourceReference, source);
-				System.out.println("source has a count of this :" + countOfCreateNode);
-
-				// 해당 룰이 여러개로 편재되어야 하는 경우 여러개로 추가생성
-				if(countOfCreateNode >= 1){
-					System.out.println(countOfCreateNode + " count found then.. ");
-					// 1~n 생성
-					int createNodeSize = 1;
-					while(countOfCreateNode > createNodeSize){
-						RuleNode newRule = childNodeList.get(i).copyNode();
-						System.out.println(countOfCreateNode + " create Rule.. " + newRule.getSourceReferenceNm() + "_" + createNodeSize);
-						newRule.setSourceReferenceNm(newRule.getSourceReferenceNm() + "_" + createNodeSize);
-						//ruleNode.addChild(newRule);
-						newChildNodeList.add(newRule);
-						createNodeSize++;
+							newChildNodeList.add(newRule);
+							createNodeSize++;
+						}
+					}else{
+						newChildNodeList.add(childNodeList.get(i));
 					}
-					// 소거
-					//System.out.println("delete Node : " + childNodeList.get(i).getSourceReferenceNm());
-					//childNodeList.remove(i);
 				}else{
-					newChildNodeList.add(childNodeList.get(i));
+					List<String> ruleParamList = MapperUtils.extractMultipleValues(childRuleSourceReference);
+					ourLog.info("    >>>> ruleNode.getSourceReferenceNm() : " + childRuleSourceReference + " size : " + ruleParamList.size());
+					boolean isPureNoArrayFunction = true;
+					for(String arg : ruleParamList){
+						ourLog.info("   >>>>>>>>>>>>>> Now Param is : " + arg);
+						countOfCreateNode = getSizeOfJSONObjectHasArray(arg, source);
+						ourLog.info("   >>>>>>>>>>>>>> Found : " + arg + "      count : " + countOfCreateNode);
+						if(countOfCreateNode >= 1){
+							System.out.println(countOfCreateNode + " count found then.. ");
+							int createNodeSize = 1;
+							// 해당 행만큼 노드 생성
+							while(countOfCreateNode > createNodeSize){
+								RuleNode newRule = childNodeList.get(i).copyNode();
+								String replaceExchagneParam = arg +  "_" + createNodeSize;
+								ourLog.info(" [dev] Replace this ..... !!! >>> " + arg + " to " + replaceExchagneParam + " in " + newRule.getSourceReferenceNm());
+								newRule.setSourceReferenceNm(newRule.getSourceReferenceNm().replaceAll(arg, replaceExchagneParam));
+								newChildNodeList.add(newRule);
+								createNodeSize++;
+								isPureNoArrayFunction = false;
+							}
+						}
+					}
+
+					if(isPureNoArrayFunction){
+						newChildNodeList.add(childNodeList.get(i));
+					}
+
 				}
 			}else{ // create 계열
+				// create 중 'a', 'b' 같은 단순 String의 경우
+				if(childNodeList.get(i).getTransactionType().equals(TransactionType.CREATE_SINGLESTRING)){
+					newChildNodeList.add(childNodeList.get(i));
+				}
+
 				// 룰이 하위 룰을 가지는 케이스인 경우 recursive for Swap
 				if(childNodeList.get(i).getChildren().size() >= 1){
 					System.out.println("하위 존재에 따른 처리 수행");
@@ -363,13 +387,40 @@ public class MapperUtils {
 		return ruleNode;
 	}
 
+	/**
+	 * Source에 들어가는 JsonObject에서 _n 으로 구성된 Array 가 존재한다면
+	 * 그 사이즈를 반환한다.
+	 *
+	 * 존재하지 않으면 -1 을 반환한다.
+	 *
+	 * @param key          the key
+	 * @param source       the source
+	 * @return the int
+	 */
 	public static int getSizeOfJSONObjectHasArray(String key, JSONObject source){
+
+		ourLog.info(" [DEV] MapperUtil getSizeOfJSONObjectHasArray ");
+
 		for(int arrange = 1; arrange <= 999; arrange++){ // 안정성에 따라 999행 이상은 merge 될 수 없음.
 			String chkCol = key + "_" + arrange;
-			if(!source.has(chkCol) && arrange == 1){
+
+			// 소스에서 배열 데이터로 변환되었는지 확인하기
+			Iterator<String> sourcekeysIteration = source.keys();
+			boolean isCotainInSourceData = false;
+			while(sourcekeysIteration.hasNext()){
+				String eachSourceKey = sourcekeysIteration.next();
+				if(eachSourceKey.equals(chkCol)){
+					// 단순 복사의 경우 source == copyRow
+					isCotainInSourceData = true;
+					break;
+				}
+			}
+
+			if(!isCotainInSourceData && arrange == 1){
 				// 없음
 				return -1;
 			}else if(!source.has(chkCol)){
+				ourLog.info(" [DEV] MapperUtil getSizeOfJSONObjectHasArray  / it has " + arrange + "   this key : " + key);
 				// 특정 행 위치
 				return arrange;
 			}else{

@@ -1,6 +1,7 @@
 package ca.uhn.fhir.jpa.starter;
 
 import ca.uhn.fhir.jpa.starter.transfor.base.code.ErrorHandleType;
+import ca.uhn.fhir.jpa.starter.transfor.base.code.TransactionType;
 import ca.uhn.fhir.jpa.starter.transfor.base.core.TransformEngine;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.MetaRule;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.ReferenceNode;

@@ -1,5 +1,6 @@
 package ca.uhn.fhir.jpa.starter;
 
+import ca.uhn.fhir.jpa.starter.transfor.base.code.TransactionType;
 import ca.uhn.fhir.jpa.starter.transfor.base.core.TransformEngine;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.RuleNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.util.MapperUtils;
@@ -14,10 +15,7 @@ import org.junit.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @SpringBootTest
 public class SampleMappingTest {
@@ -27,7 +25,7 @@ public class SampleMappingTest {
 		"  \"value1\" : 202230,\n" +
 		"  \"value2\" : \"-\",\n" +
 		"  \"value3\" : 200,\n" +
-		"  \"detail\" : 111111,\n" +
+		"  \"detail\" : M,\n" +
 		"  \"code\" : \"소스A의 코드\"\n" +
 		"}\n";
 
@@ -36,7 +34,7 @@ public class SampleMappingTest {
 		"  \"value1\" : 201130,\n" +
 		"  \"value2\" : \"-\",\n" +
 		"  \"value3\" : 200,\n" +
-		"  \"detail\" : 222222,\n" +
+		"  \"detail\" : M,\n" +
 		"  \"code\" : \"소스B의 코드\"\n" +
 		"}\n";
 
@@ -45,7 +43,7 @@ public class SampleMappingTest {
 		"  \"value1\" : 202230,\n" +
 		"  \"value2\" : \"-\",\n" +
 		"  \"value3\" : 200,\n" +
-		"  \"detail\" : 333333,\n" +
+		"  \"detail\" : F,\n" +
 		"  \"code\" : \"소스C의 코드\"\n" +
 		"}\n";
 
@@ -54,15 +52,16 @@ public class SampleMappingTest {
 		"  \"value1\" : 12230,\n" +
 		"  \"value2\" : \"-\",\n" +
 		"  \"value3\" : 30,\n" +
-		"  \"detail\" : 444444,\n" +
+		"  \"detail\" : F,\n" +
 		"  \"code\" : \"소스D의 코드\"\n" +
 		"}\n";
 
 	String argMap =
 		"* resourceType='Test'\n" +
-		"* (normalStringArray).normalStringArray\n" +  // [ '', '' ]
-		" * 'aaa'\n" +
-		" * 'bbb'\n" +
+		"* testv\n" +
+		" * (normalStringArray).normalStringArray\n" +  // [ '', '' ]
+		"  * 'aaa'\n" +
+		"  * 'bbb'\n" +
 		"* (test).test\n" + // [ {}, {} ]
 		" * value1=value1\n" +
 		" * value2=value2\n" +
@@ -71,8 +70,14 @@ public class SampleMappingTest {
 		" * value2=value2\n" +
 		" * value3=value3\n"+
 		"* (arraytest).arraytest\n"+ // [ {}, {} ] with dynamics
-		" * detail=detail\n"+
+		" * detail=CASE(detail, 'M', 'male', 'F', 'female', 'U', 'unknown')\n"+
 		" * code=code\n"+
+		" * (testdata).testdata\n"+
+		"  * code=code\n"+
+		" * (testarray).testarray\n"+
+		"  * 'a'\n"+
+		"  * 'b'\n"+
+		"  * 'c'\n"+
 		"* (arraytest).arraytwo\n"+ // 중복되는 데이터의 관리
 		" * detail=detail\n"+
 		" * code=code\n"
@@ -147,6 +152,12 @@ public class SampleMappingTest {
 		element = parser.parse(sourceC);
 		elementList.add(element);
 
+		element = parser.parse(sourceC);
+		elementList.add(element);
+
+		element = parser.parse(sourceC);
+		elementList.add(element);
+
 		element = parser.parse(sourceB);
 		elementList.add(element);
 
@@ -193,4 +204,21 @@ public class SampleMappingTest {
 
 		// ok. 2024 02 28
 	}
+
+
+	@Test
+	public void 간단한iterationTest() throws JSONException{
+
+		JSONObject jsonObject = new JSONObject();
+		jsonObject.put("name", "John Doe");
+		jsonObject.put("age", 30);
+		jsonObject.put("city", "New York");
+
+		Iterator<String> keys = jsonObject.keys();
+		// 키 순회 및 출력
+		while(keys.hasNext()) {
+			System.out.println(keys.next());
+		}
+	}
+
 }
