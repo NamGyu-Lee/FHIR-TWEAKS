@@ -2,6 +2,7 @@
  * mapping
   * error_policy = exception
   * cacheKey = inst_cd, ord_dr_id
+  * mergeKey = clam_dept_cd, clam_dept_nm
   * referenceData
    * referenceResource
     * target = Organization

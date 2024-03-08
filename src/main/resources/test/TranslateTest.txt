@@ -1,0 +1,9 @@
+* metadata
+ * cacheKey = id
+ * mergeKey = id
+ * mapping
+  * error_policy = exception
+  * referenceData
+-----
+* resourceType='TranslateTest'
+* value=TRANSLATE(a, 'http://test.org/fhir/ConceptMap/organization-types', 'http://terminology.hl7.org/CodeSystem/OrganizationTypes', '6.0.0-cibuild')

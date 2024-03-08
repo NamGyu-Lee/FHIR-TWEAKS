@@ -8,8 +8,11 @@ import ca.uhn.fhir.jpa.starter.transfor.base.map.MetaRule;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.ReferenceNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.ReferenceParamNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.RuleNode;
+import lombok.NonNull;
 import org.checkerframework.common.value.qual.IntRange;
+import org.h2.bnf.Rule;
 import org.jetbrains.annotations.Range;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.*;
@@ -60,15 +63,16 @@ public class MapperUtils {
 				isIdentifierNode = false;
 			}
 
-			boolean isArray = false;
-			if(line.contains("(Array)") || line.contains("(ARRAY)") || line.contains("(array)")){
-				isArray = true;
+			boolean isMergedNode = false;
+			if(line.contains("(MERGE)")){
+				line = line.replaceAll("\\(MERGE\\)", "");
+				isMergedNode = true;
 			}else{
-				isArray = false;
+				isMergedNode = false;
 			}
 
 			// 맵 구조화
-			RuleNode ruleNode = new RuleNode(null, line.trim(), level, isIdentifierNode, isArray);
+			RuleNode ruleNode = new RuleNode(null, line.trim(), level, isIdentifierNode, isMergedNode);
 			
 			if (level == currentLevel && currentParent != null) {
 				ruleNode.setParent(currentParent);
@@ -115,6 +119,9 @@ public class MapperUtils {
 		List<ReferenceNode> referenceNodeList = new ArrayList<>();
 		ReferenceNode currentReferenceNode = null;
 
+		ourLog.info("--- MetaRule 정보를 생성합니다. ---");
+		ourLog.debug("ㄴ 생성 스크립트 : \n" + script);
+		ourLog.debug("------------------------------");
 		Iterator<String> iterator = Arrays.asList(script.split("\n")).iterator();
 		while(iterator.hasNext()) {
 			String line = iterator.next();
@@ -123,7 +130,7 @@ public class MapperUtils {
 			line = line.replaceAll("\\s*=\\s*", "=");
 			line = line.trim();
 
-			if(line.contains("error_policy=")) {
+			if(line.contains("error_policy")) {
 				metaRule.setErrorHandleType(ErrorHandleType.searchErrorHandleType(line.split("=")[1].trim()));
 			}else if(line.contains("cacheKey")){
 				String cacheKeySingleStr = line.split("=")[1].trim();
@@ -134,11 +141,17 @@ public class MapperUtils {
 				}
 				metaRule.setCacheDataKey(cacheKeySet);
 			}else if(line.contains("mergeKey")){
-				String mergeKeySingleStr = line.split("=")[1].trim();
-				String[] mergeKeyArray = mergeKeySingleStr.split(",");
 				Set<String> mergeKeySet = new HashSet<>();
-				for(String arg : mergeKeyArray){
-					mergeKeySet.add(arg.trim());
+				if(line.split("=").length <= 1){
+					// 데이터가 없는 경우 미활용
+					ourLog.info(" ... 해당 맵은 mergeKey를 활용하지 않습니다.");
+				}else{
+					String mergeKeySingleStr = line.split("=")[1].trim();
+					String[] mergeKeyArray = mergeKeySingleStr.split(",");
+					for(String arg : mergeKeyArray){
+						mergeKeySet.add(arg.trim());
+					}
+					ourLog.info(" ... 해당 맵의 merge Key size : " + mergeKeySet.size());
 				}
 				metaRule.setMergeDataKey(mergeKeySet);
 			}else if(line.contains("referenceResource")){
@@ -148,9 +161,9 @@ public class MapperUtils {
 				}
 				currentReferenceNode = new ReferenceNode();
 				referenceParamNodeList = new ArrayList<>();
-			}else if(line.contains("target=")){
+			}else if(line.contains("target")){
 				currentReferenceNode.setTargetResource(line.split("=")[1].trim());
-			}else if(line.contains("error_policy=")){
+			}else if(line.contains("depend_policy")){
 				currentReferenceNode.setErrorHandleType(ErrorHandleType.searchErrorHandleType(line.split("=")[1]));
 			}else if(line.contains("->")){
 				referenceParamNodeList.add(createReferenceParamNode(line));
@@ -161,6 +174,13 @@ public class MapperUtils {
 			}
 		}
 		metaRule.setReferenceNodeList(referenceNodeList);
+
+		ourLog.info("---- created RuleNode information... ----");
+		ourLog.info("keySet Size : " + metaRule.getCacheDataKey().size());
+		ourLog.info("MergeKeySet Size : " + metaRule.getMergeDataKey().size());
+		ourLog.info("ReferenceNode Size : " + metaRule.getReferenceNodeList().size());
+		ourLog.info("-----------------------------------------");
+		ourLog.info("--- MetaRule 정보를 생성 완료 하였습니다. ---");
 		return metaRule;
 	}
 
@@ -250,7 +270,7 @@ public class MapperUtils {
 	// ★ 보완필요. ruleNodeList, source, mergeKeySet
 	// 3가지 값을 활용하여 AdditionTree 구성
 	//
-	public static List<RuleNode> createAdditionTreeForArray(List<RuleNode> ruleNodeList, JSONObject source){
+	public static List<RuleNode> createAdditionTreeForArray(List<RuleNode> ruleNodeList, JSONObject source, Set<String> mergeKey){
 		List<RuleNode> retRuleNodeList = new ArrayList<>();
 		for (RuleNode eachRuleNode : ruleNodeList){
 			// arrayRule만 수행
@@ -272,13 +292,12 @@ public class MapperUtils {
 
 			boolean isUsermuxInputRule = false;
 			for (int i = 1; i < sourceChildNodeList.size(); i++){
-				// 흠...
 				String searchIndexSourceReferenceName = sourceChildNodeList.get(0).getSourceReferenceNm() + "_" + i;
 
 				if (source.has(searchIndexSourceReferenceName)) {
 					// Array Create Rule Node에 내부에 가진 Sourceref를 바꾼 뒤 추가 적재
 					for(RuleNode originalNode : sourceChildNodeList){
-						RuleNode copyNode = new RuleNode(originalNode.getParent(), originalNode.getRule(), originalNode.getLevel(), originalNode.isIdentifierNode(), false);
+						RuleNode copyNode = new RuleNode(originalNode.getParent(), originalNode.getRule(), originalNode.getLevel(), originalNode.isIdentifierNode(), originalNode.isMergedNode());
 						RuleNode newArrayRule = createRuleSourceReferenceForArrayTypeData(copyNode, source, "_" + i);
 						createdChildNodeList.add(newArrayRule);
 					}
@@ -299,16 +318,42 @@ public class MapperUtils {
 		return retRuleNodeList;
 	}
 
-	// div conq
-	public static RuleNode createTreeForArrayWithRecursive(RuleNode ruleNode, JSONObject source){
+	/**
+	 * 이진트리를 recursive 하게 수행하면서 병합되어있는 행의 source 정보에 대하여
+	 * map에 반영시켜준다.
+	 *
+	 * @param ruleNode the rule node
+	 * @param source   the source
+	 * @return the rule node
+	 */
+// div conq
+	public static RuleNode createTreeForArrayWithRecursive(RuleNode ruleNode, JSONObject source) throws JSONException {
 		List<RuleNode> childNodeList = ruleNode.getChildren();
-		System.out.println("active Start... childNode Size : " + childNodeList.size());
-
 		MapperUtils.printRuleAndRuleTypeInNodeTree(ruleNode);
 
+		// <MERGE> -> [{} {} {}]
+		if(ruleNode.isMergedNode()){
+			System.out.println("이 룰은 MERGE 기반 룰입니다. 해당 룰의 child 룰은 N차행 구조를 가지지말고, ");
+			System.out.println("전체 소스 Row 병합수(source.merged_row_count)만큼 child와 함께 해당 노드 상위노드에 복제해서 넣으면 됌.");
+			System.out.println("아래 for문에서 그렇게 처리하면 될 것으로 보임.");
+			RuleNode copyMainRule = ruleNode.copyNode();
+			List<RuleNode> childCopyNodeList = new ArrayList<>();
+			for(int i = 0; source.getInt("merged_row_count") > i ; i++){
+				RuleNode copyedNode = MapperUtils.fullCopyRuleNode(copyMainRule, i).copyNode();
+				childCopyNodeList.addAll(copyedNode.getChildren());
+				System.out.println("  ㄴ 이 노드를 복사하였음. " + i);
+			}
+			copyMainRule.setChildren(childCopyNodeList);
+			return copyMainRule;
+		}else{
+			System.out.println("이 룰은 MERGE 기반 룰이 아닙니다.");
+		}
+
+		// {} -> [{} {}]
 		int childNodeSize = childNodeList.size();
 		List<RuleNode> newChildNodeList = new ArrayList<>();
 		for(int i = 0; childNodeSize > i; i++){
+
 			System.out.println("---------------------------------------------");
 			System.out.println("NOW : " + childNodeList.get(i).getSourceReferenceNm());
 
@@ -357,11 +402,9 @@ public class MapperUtils {
 							}
 						}
 					}
-
 					if(isPureNoArrayFunction){
 						newChildNodeList.add(childNodeList.get(i));
 					}
-
 				}
 			}else{ // create 계열
 				// create 중 'a', 'b' 같은 단순 String의 경우
@@ -371,7 +414,6 @@ public class MapperUtils {
 
 				// 룰이 하위 룰을 가지는 케이스인 경우 recursive for Swap
 				if(childNodeList.get(i).getChildren().size() >= 1){
-					System.out.println("하위 존재에 따른 처리 수행");
 					List<RuleNode> nodeList = childNodeList;
 					// 변환
 					newChildNodeList.add(createTreeForArrayWithRecursive(childNodeList.get(i), source));
@@ -379,11 +421,8 @@ public class MapperUtils {
 			}
 			// 반복문을 위한 사이즈 갱신
 			childNodeSize = childNodeList.size();
-			System.out.println("------------------------------------------------------- now child nude size : " + childNodeSize);
 		}
-
 		ruleNode.setChildren(newChildNodeList);
-
 		return ruleNode;
 	}
 
@@ -398,9 +437,6 @@ public class MapperUtils {
 	 * @return the int
 	 */
 	public static int getSizeOfJSONObjectHasArray(String key, JSONObject source){
-
-		ourLog.info(" [DEV] MapperUtil getSizeOfJSONObjectHasArray ");
-
 		for(int arrange = 1; arrange <= 999; arrange++){ // 안정성에 따라 999행 이상은 merge 될 수 없음.
 			String chkCol = key + "_" + arrange;
 
@@ -433,7 +469,7 @@ public class MapperUtils {
 	// 배열화 된 SourceData의 A_1, A_2 식의 데이터로 구성함에 따라
 	// 가변적인 룰 구성을 위해 하위룰 모두에게 append_separator 를 붙여준다.
 	// rule.sourceReferenceName + append_separator
-	private static RuleNode createRuleSourceReferenceForArrayTypeData(RuleNode ruleNode, JSONObject source, String append_separator) {
+	private static RuleNode createRuleSourceReferenceForArrayTypeData(MetaRule metaRule, RuleNode ruleNode, JSONObject source, String append_separator) {
 		RuleNode newNode = ruleNode.copyNode();
 		ourLog.info("exchange Ref Target Refer Source Data : " + ruleNode.getSourceReferenceNm());
 
@@ -441,7 +477,7 @@ public class MapperUtils {
 		RuleType rt = newNode.getRuleType();
 		TransactionType tt = newNode.getTransactionType();
 
-		ourLog.info(" allocated Rule Type : " + rt.name());
+		ourLog.info("allocated Rule Type : " + rt.name());
 		ourLog.info("each allocated type of transaction : " + tt.name());
 	   if (RuleType.CREATE_ARRAY.equals(newNode.getRuleType())){
 			ourLog.info("ARRAY IN ARRAY ... ");
@@ -454,6 +490,8 @@ public class MapperUtils {
 				String exchangeReferenceForArray = newNode.getSourceReferenceNm() + append_separator;
 				newNode.setSourceReferenceNm(exchangeReferenceForArray);
 			} else if (tt.equals(TransactionType.CASE) || tt.equals(TransactionType.DATE) || tt.equals(TransactionType.COPY_WITH_DEFAULT) || tt.equals(TransactionType.SPLIT) || tt.equals(TransactionType.TRANSLATION) || tt.equals(TransactionType.MERGE)){
+				// Function 스타일로 구성된 TransactionType 의 대하여 Column -> Column_n 으로 변경
+				// ex) FUNCTION(a, '', b) -> FUNCTION(a_1, '', a_2)
 				List<String> argumentParam = extractMultipleValues(ruleNode.getSourceReferenceNm());
 				String exchangeRef = argumentParam.get(0) + append_separator;
 				newNode.setSourceReferenceNm(newNode.getSourceReferenceNm().replaceAll(argumentParam.get(0), exchangeRef));
@@ -470,6 +508,12 @@ public class MapperUtils {
 		return newNode;
 	}
 
+	/**
+	 * 함수형 데이터의 결과에서 파라미터에 값들을 반환해준다.
+	 *
+	 * @param input the input
+	 * @return the list
+	 */
 	public static List<String> extractMultipleValues(String input) {
 		List<String> values = new ArrayList<>();
 		Pattern pattern = Pattern.compile("\\w+\\((.*)\\)");
@@ -484,7 +528,62 @@ public class MapperUtils {
 		return values;
 	}
 
+	/**
+	 * 하위노드를 전체복사한다.
+	 *
+	 * @param ruleNode the rule node
+	 * @return the rule node
+	 */
+	public static RuleNode fullCopyRuleNode(@NonNull RuleNode ruleNode){
+		if(ruleNode.getChildren().size() <= 0){
+				return ruleNode.copyNode();
+		}else{
+			RuleNode copiedParentNode = ruleNode.copyNode();
+			List<RuleNode> copiedChildNodeList = new ArrayList<>();
+			for(RuleNode eachChildRuleNode : ruleNode.getChildren()){
+				copiedChildNodeList.add(fullCopyRuleNode(eachChildRuleNode));
+			}
+			copiedParentNode.setChildren(copiedChildNodeList);
+			return copiedParentNode;
+		}
+	}
 
+	/**
+	 * 2024. 03. 08.
+	 * Array 의 대한 배열형 데이터컬럼으로 일괄 변경한다.
+	 *
+	 * @return the rule node
+	 */
+	public static RuleNode exchangeReferenceNameForArray(RuleNode ruleNode, int mergedBoundNum, Set<String> mergeKeySet){
+		if(ruleNode.getChildren().size() <= 0){
+				ruleNode.setSourceReferenceNm(bindFunctionReferenceToArrayReference(
+					ruleNode.getSourceReferenceNm(),
+					mergedBoundNum,
+					mergeKeySet
+				));
+		}else{
+			for(RuleNode parentNode : ruleNode.getChildren()){
+				exchangeReferenceNameForArray(parentNode, mergedBoundNum, mergeKeySet);
+			}
+		}
+		return ruleNode;
+	}
 
-
+	/**
+	 * 2024. 03. 08.
+	 * MERGE( a, b, c, '', d) 의 referenceRule 중에
+	 * a, b 가 mergeSet 이라면
+	 * MERGE( a_"mergeBoundNum", b_"mergeBoundNum", c, '', d) 로 바꿔서 반환한다.
+	 * ex) MERGE( a_1, b_1, c, '', d)
+	 *
+	 * @param referenceRule  the reference rule
+	 * @param mergedBoundNum the merged bound num
+	 * @param mergeKeySet       the merge set
+	 */
+	public static String bindFunctionReferenceToArrayReference(String referenceRule, int mergedBoundNum, Set<String> mergeKeySet){
+		for(String mergeKey : mergeKeySet){
+			referenceRule.replaceAll(mergeKey, mergeKey+"_"+mergedBoundNum);
+		}
+		return referenceRule;
+	}
 }

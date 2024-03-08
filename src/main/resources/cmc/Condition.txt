@@ -1,6 +1,8 @@
 * metadata
  * mapping
   * error_policy = exception
+  * cacheKey = inst_cd, pid, ord_dd, ord_dept_cd, ord_dr_id, ord_type_cd, cret_no
+  * mergeKey =
   * referenceData
    * referenceResource
     * target = Organization

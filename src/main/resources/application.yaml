@@ -282,10 +282,12 @@ service:
           searchparameter: true
   validation:
     enabled: false
+    local:
+      enabled: false
     remote:
       server:
-        enabled : true
-        url: http://122.153.160.23:6010/fhir
+        enabled: true
+        url: http://fhrdev.cmcnu.or.kr/fhir
   transfor:
     enabled: true
     type: engine+ref

@@ -1,5 +1,6 @@
 package ca.uhn.fhir.jpa.starter.transfor.util;
 
+import ca.uhn.fhir.jpa.starter.transfor.base.util.MapperUtils;
 import ca.uhn.fhir.jpa.starter.transfor.code.ResourceNameSummaryCode;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
 import com.google.gson.Gson;
@@ -12,6 +13,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.springframework.core.io.ClassPathResource;
 
+import javax.json.Json;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,6 +29,8 @@ import java.util.stream.Stream;
  * 정의한다.
  */
 public class TransformUtil {
+
+	private static final org.slf4j.Logger ourLog = org.slf4j.LoggerFactory.getLogger(TransformUtil.class);
 
 	private TransformDataOperationConfigProperties transformDataOperationConfigProperties;
 
@@ -44,7 +48,7 @@ public class TransformUtil {
 		// Upper
 		for(String upperString : transformDataOperationConfigProperties.getResourceUpperSortingReferenceSet()){
 			for(Map.Entry<String, JsonElement> eachEntry : jsonObject.entrySet()){
-				if(eachEntry.getKey().equals(upperString)){
+				if(eachEntry.getKey().toLowerCase().equals(upperString)){
 					upperSortingQueue.add(eachEntry);
 				}
 			}
@@ -53,7 +57,7 @@ public class TransformUtil {
 		// Lower
 		for(String lowerString : transformDataOperationConfigProperties.getResourceLowerSortingReferenceSet()){
 			for(Map.Entry<String, JsonElement> eachEntry : jsonObject.entrySet()){
-				if(eachEntry.getKey().equals(lowerString)){
+				if(eachEntry.getKey().toLowerCase().equals(lowerString)){
 					lowerSortingQueue.add(eachEntry);
 				}
 			}
@@ -105,19 +109,19 @@ public class TransformUtil {
 	 * Merge json object pattern.
 	 *
 	 * @param keySet          키로 구성할 키 셋.
-	 * @param mergeTargetKeySet     병합할 키 셋. 존재하지 않으면 키 외 전체를 boundKeySet으로 본다.
+	 * @param mergeKeySet     병합할 키 셋. 존재하지 않으면 키 외 전체를 boundKeySet으로 본다.
 	 * @param jsonElementList 대상(반드시 동일한 Json element 의 연속으로 본다)
 	 */
-	public static List<JsonObject> mergeJsonObjectPattern(Set<String> keySet, Set<String> mergeTargetKeySet, List<JsonElement> jsonElementList) {
+	public static List<JsonObject> mergeJsonObjectPattern(Set<String> keySet, Set<String> mergeKeySet, List<JsonElement> jsonElementList) {
 		Map<String, JsonObject> mergedMap = new HashMap<>();
 
 		// Bound Key Set 이 존재하지 않으면 키를 제외한 모든 값이 바인드 키 셋으로 정의한다.
-		if (mergeTargetKeySet.size() <= 0) {
+		if (mergeKeySet == null || mergeKeySet.size() <= 0) {
 			Set<String> allKeyObjects = jsonElementList.get(0).getAsJsonObject().keySet();
 			for (String arg : allKeyObjects){
 				String argNoSeparateText = arg.replaceAll("_[0-9]", "");
 				if (!keySet.contains(argNoSeparateText)) {
-					mergeTargetKeySet.add(argNoSeparateText);
+					mergeKeySet.add(argNoSeparateText);
 				}
 			}
 		}
@@ -138,17 +142,20 @@ public class TransformUtil {
 				int arrangeSize = arraySizeMap.get(keyValue);
 				if(arrangeSize == 1){
 					// 첫번째 중첩 시 첫번째 행의 데이터도 _N 값 추가
-					mergeJsonObjects(befObject, mergeJsonObject(mergeTargetKeySet, arrangeSize, befObject));
+					JsonObject obj = exchangeMergeDataPivotJsonObject(mergeKeySet, arrangeSize, befObject);
+					mergeJsonObjects(befObject, obj);
 					// 1행 추가에 따른 _N 이 없는 행 소거
-					for(String key : mergeTargetKeySet){
+					for(String key : mergeKeySet){
 						befObject.remove(key);
 					}
 				}
-				mergeJsonObjects(befObject, mergeJsonObject(mergeTargetKeySet, arrangeSize + 1, jsonObj));
+				mergeJsonObjects(befObject, exchangeMergeDataPivotJsonObject(mergeKeySet, arrangeSize + 1, jsonObj));
+				befObject.addProperty("merged_row_count", arrangeSize);
 				mergedMap.put(keyValue, befObject);
 				arraySizeMap.put(keyValue, arrangeSize + 1);
 			} else {
-				// 비존재 시 추가
+				// 비존재 시
+				jsonObj.addProperty("merged_row_count", 1);
 				mergedMap.put(keyValue, jsonObj);
 				arraySizeMap.put(keyValue, 1);
 			}
@@ -161,16 +168,19 @@ public class TransformUtil {
 
 	/**
 	 * 두개의 JsonArray 의 대하여 Set<String> 을 대상으로 컬럼이 있으면 _segNumber 로 생성해준다.
+	 * 생성뒤 merge 된 카운트를 merged_row_count라는 컬럼으로 추가해준다.
 	 *
 	 * @param boundKeySet the bound key set
 	 * @param segNumber   the seg number
 	 * @param source      the source
 	 * @return the json object
 	 */
-	private static JsonObject mergeJsonObject(Set<String> boundKeySet, int segNumber, JsonObject source) {
+	private static JsonObject exchangeMergeDataPivotJsonObject(Set<String> boundKeySet, int segNumber, JsonObject source) {
 		JsonObject retObject = new JsonObject();
 		Set<String> sourceSet = source.keySet();
+		int mergedCount = 0;
 		for (String eachKey : sourceSet) {
+			mergedCount = mergedCount + 1;
 			if(boundKeySet.contains(eachKey) && segNumber == 1) {
 				System.out.println("segNumber Operation..! : " + eachKey);
 				retObject.add(eachKey + "_" + String.valueOf(segNumber), source.get(eachKey));
@@ -178,6 +188,10 @@ public class TransformUtil {
 				retObject.add(eachKey + "_" + String.valueOf(segNumber), source.get(eachKey));
 			}
 		}
+
+		// 병합한 row 갯수를 source 데이터에 덧붙이기
+		retObject.addProperty("merged_row_count", mergedCount);
+
 		return retObject;
 	}
 
@@ -248,8 +262,6 @@ public class TransformUtil {
 		String[] keys = keyPath.split("\\.");
 		JSONObject tempObj = jsonObject;
 
-		System.out.println("DEV!!! : " + jsonObject.toString());
-
 		for (int i = 0; i < keys.length - 1; i++) {
 			tempObj = tempObj.getJSONObject(keys[i]);
 		}
@@ -263,6 +275,9 @@ public class TransformUtil {
 	 * @return the string
 	 */
 	public static String getMap(String mapType){
+
+		ourLog.info("---- 해당 리소스에 적합한 변환 맵을 호출합니다. ----");
+		ourLog.info("호출 할 변환 맵 : " + mapType);
 		LinkedList<String> linkedList = splitByDot(mapType);
 
 		String location = "";
@@ -277,7 +292,6 @@ public class TransformUtil {
 		}
 		location = location + ".txt";
 
- 		ClassPathResource resource = new ClassPathResource(location);
 		try {
 			InputStream inputStream = new ClassPathResource(location).getInputStream();
 			File file = File.createTempFile("maptempfile", ".dat");
@@ -298,6 +312,9 @@ public class TransformUtil {
 
 				retString = retString + eachLine + "\n";
 			}
+
+			ourLog.debug("map to String : " + retString);
+			ourLog.info("-----------------------------");
 
 			return retString;
 		} catch (IOException e) {

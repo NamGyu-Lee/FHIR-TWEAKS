@@ -39,7 +39,6 @@ public class MetaEngine {
 	}
 
 	public MetaRule getMetaData(String mapScript) throws IllegalArgumentException {
-		JSONObject retJSONObject = new JSONObject();
 		String referenceMapStr = MapperUtils.getSeparateMapScript(mapScript, "meta");
 		ourLog.info("referenceMapStr : " + referenceMapStr);
 
@@ -61,8 +60,10 @@ public class MetaEngine {
 					if(searchedCacheResource == null){
 						if(transformDataOperationConfigProperties.isSearchReferenceinRepoEnabled()){
 								// 2. FHIR Resource에서 조회
-							   // 미구현.
-								this.findResourceInRepo(refnode, source);
+								throw new IllegalArgumentException("[ERR] 해당 리소스의 레퍼런스가 캐시/Repo 내 조회되지 않아 오류가 발생하였습니다. "  + refnode.getTargetResource());
+
+								// 적재형인 경우 활용
+								// this.findResourceInRepo(refnode, source);
 						}else{
 							if(referenceErrorPolicyType.equals(ErrorHandleType.EXCEPTION)){
 								throw new IllegalArgumentException("[ERR] 해당 리소스의 레퍼런스가 캐시/Repo 내 조회되지 않아 오류가 발생하였습니다. "  + refnode.getTargetResource());
@@ -116,6 +117,12 @@ public class MetaEngine {
 				requestConditionMap.put(node.getCacheTargetStr(), source.getString(node.getSourceStr()));
 			}
 
+			ourLog.debug("cache search Keys : ");
+			ourLog.debug(" > ");
+			for(String key : requestConditionMap.keySet()){
+				ourLog.debug(key  + "  :  "  + requestConditionMap.get(key));
+			}
+
 		// 3. 데이터 조회
 		return referenceCacheHandler.searchCache(referenceNode.getTargetResource(), requestConditionMap);
 
@@ -124,7 +131,7 @@ public class MetaEngine {
 		}
 	}
 
-	// TODO. 서버 내 Repo 에서 데이터 조회하기.
+	// TODO. 추후 데이터 미적재(바로 변경 후 반환) 외 데이터 적재 구조 시 Reference의 대하여 Repo 에서 가져올 수 있도록 작업해주기
 	public ReferenceCache findResourceInRepo(ReferenceNode referenceNode, JSONObject source) throws IllegalArgumentException{
 		// 1. reference 에 데이터 읽기
 		List<ReferenceParamNode> paramNodes = referenceNode.getReferenceParamNodeList();
@@ -138,6 +145,7 @@ public class MetaEngine {
 					searchKey.add(eachParamnode.getFhirTargetStr());
 				}
 			}
+
 			// 3. FHIR 데이터 조회
 			// 미구현
 			// 4. cache 에 조회한 FHIR 데이터 넣기
@@ -150,6 +158,10 @@ public class MetaEngine {
 
 	public boolean putCacheResource(MetaRule metaRule, JSONObject source, @Nullable IBaseResource createdResource, @Nullable Reference createdReference) throws IllegalArgumentException{
 		try {
+
+			ourLog.info("---- Meta정보중 Cache Resource 를 적재합니다. ----");
+			ourLog.debug("현재 적재된 크기 : " + metaRule.getCacheDataKey().size());
+
 			// 1. Cache를 위한 고유 키 식별자 조회 및 정의
 			Map<String, String> bindingKeyMap = new HashMap<>();
 			for (String eachKey : metaRule.getCacheDataKey()) {
@@ -158,17 +170,28 @@ public class MetaEngine {
 
 			// 2. 이전 생성여부 확인
 			if(referenceCacheHandler.searchCache(createdResource.fhirType(), bindingKeyMap) != null){
-				return true;
+				ourLog.info("해당 데이터는 이미 존재하여 적재하지 않습니다.");
+				ourLog.debug("    ㄴ 현재 적재된 리소스 종류 : ");
+				for(String ref : referenceCacheHandler.getCacheMap().keySet()){
+					ourLog.debug("          > :" + ref);
+				}
 				//throw new IllegalArgumentException("[ERR] 데이터를 저장하는 과정에서 중복된 데이터가 조회되어 오류가 발생하였습니다. ");
 			}else{
 				// 3. 생성
+				ourLog.info("해당 데이터를 적재하는데에 성공하였습니다.  종류 : " + createdResource.fhirType() + " , 적재 데이터 : " + bindingKeyMap);
 				ReferenceCache cache = new ReferenceCache();
 				cache.setResource(createdResource);
 				cache.setReference(createdReference);
 				cache.setKeyMap(bindingKeyMap);
 				referenceCacheHandler.putCache(createdResource.fhirType(), cache);
-				return true;
+
+				ourLog.debug("    ㄴ 현재 적재된 리소스 종류 : ");
+				for(String ref : referenceCacheHandler.getCacheMap().keySet()){
+					ourLog.debug("          > :" + ref);
+				}
 			}
+			ourLog.info("-------------------------------");
+			return true;
 
 		}catch(Exception e){
 			e.printStackTrace();

@@ -2,6 +2,7 @@
  * mapping
   * error_policy = exception
   * cacheKey = inst_cd, ord_dr_id
+  * mergeKey = ord_dr_nm
   * referenceData
    * referenceResource
     * target = Organization
@@ -19,14 +20,12 @@
 * active='true'
 * (name).name
  * text=ord_dr_nm
- * use='true'
 * (qualification).qualification
  * identifier
-  * use='true'
   * system='http://www.hl7korea.or.kr/Identifier/mohw-md-license-id'
-  * value=license_no
+  * value=licns_no
  * code
   * (coding).coding
-   * system='http://www.hl7korea.or.kr/CodeSystem/mohw-practitioner-qualification-types"
-   * code = duty_type
-   * text = duty_type_nm
+   * system='http://www.hl7korea.or.kr/CodeSystem/mohw-practitioner-qualification-types'
+   * code=duty_type
+   * text=duty_type_nm

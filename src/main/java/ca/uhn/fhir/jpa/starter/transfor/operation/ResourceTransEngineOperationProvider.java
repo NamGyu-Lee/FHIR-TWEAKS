@@ -52,7 +52,7 @@ public class ResourceTransEngineOperationProvider extends BaseJpaProvider {
 
 	public ResourceTransEngineOperationProvider(FhirContext fn){
 		this.fn = fn;
-		transformEngine = new TransformEngine(customValidationRemoteConfigProperties);
+		transformEngine = new TransformEngine(null, customValidationRemoteConfigProperties);
 
 		// 캐시처리
 		Map<String, String> noSearchArg = new HashMap<>();

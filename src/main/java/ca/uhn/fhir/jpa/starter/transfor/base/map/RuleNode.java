@@ -30,7 +30,7 @@ public class RuleNode {
 
 	boolean isIdentifierNode;
 
-	boolean isArrayNode;
+	boolean isMergedNode;
 
 	int level;
 
@@ -38,7 +38,7 @@ public class RuleNode {
 
 	RuleNode parent;
 
-	public RuleNode(RuleNode parentRuleNode, String rule, int level, boolean isIdentifierNode, boolean isArrayNode) {
+	public RuleNode(RuleNode parentRuleNode, String rule, int level, boolean isIdentifierNode, boolean isMergedNode) {
 		this.parent = parentRuleNode;
 		this.rule = rule;
 		ruleType = RuleUtils.classifyRuleType(rule);
@@ -53,7 +53,7 @@ public class RuleNode {
 		this.level = level;
 		this.children = new ArrayList<>();
 		this.isIdentifierNode = isIdentifierNode;
-		this.isArrayNode = isArrayNode;
+		this.isMergedNode = isMergedNode;
 	}
 
 	public void addChild(RuleNode child) {
@@ -61,7 +61,7 @@ public class RuleNode {
 	}
 
 	public RuleNode copyNode(){
-		RuleNode cpNode = new RuleNode(this.getParent(), this.rule, this.level, this.isIdentifierNode, this.isArrayNode);
+		RuleNode cpNode = new RuleNode(this.getParent(), this.rule, this.level, this.isIdentifierNode, this.isMergedNode);
 		if(cpNode.getRuleType().equals(RuleType.TRANS)){
 			cpNode.setTransactionType(RuleUtils.classifyTransactionType(cpNode.getRule()));
 			cpNode.setSourceReferenceNm(RuleUtils.getSourceReferenceName(cpNode.getRule()));
@@ -69,9 +69,8 @@ public class RuleNode {
 		}else{
 			cpNode.setTransactionType(RuleUtils.classifyTransactionType(cpNode.getRule()));
 			cpNode.setTargetElementNm(cpNode.getRule());
+			cpNode.setMergedNode(isMergedNode);
 		}
 		return cpNode;
 	}
-
-
 }

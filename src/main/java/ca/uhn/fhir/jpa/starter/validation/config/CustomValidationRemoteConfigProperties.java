@@ -16,11 +16,16 @@ public class CustomValidationRemoteConfigProperties {
 	@Value("${hapi.fhir.tester.home.server_address}")
 	private String localURL;
 
+	@Value("${service.validation.local.enabled}")
+	private boolean localTerminologyYn;
+
 	@Value("${service.validation.remote.server.enabled}")
 	private boolean remoteTerminologyYn;
 
 	@Value("${service.validation.remote.server.url}")
 	private String remoteURL;
+
+	public boolean isLocalTerminologyYn() {return localTerminologyYn;}
 
 	public boolean isRemoteTerminologyYn() {
 		return remoteTerminologyYn;

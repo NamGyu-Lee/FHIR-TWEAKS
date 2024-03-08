@@ -2,7 +2,7 @@
  * mapping
   * error_policy = exception
   * cacheKey = inst_cd
-  * mergeKey = telType, telno
+  * mergeKey = teltype, telno
 -----
 * resourceType='Organization'
 * id=(KEY)SPLIT(proc_corp_cd, 26)
@@ -17,11 +17,11 @@
 * type
   * (coding).coding
    * system='http://www.hl7korea.or.kr/CodeSystem/hira-healthcare-organization-types'
-   * code=hosp_flag
+   * code=TRANSLATE(hosp_flag, 'http://test.org/fhir/ConceptMap/organization-types', 'http://terminology.hl7.org/CodeSystem/OrganizationTypes', '6.0.0-cibuild')
 * active='true'
 * name=hosp_nm
 * (telecom).telecom
- * system=NVL(telType, 'phone')
+ * system=NVL(teltype, 'phone')
  * value=telno
 * (address).address
  * text=hosp_addr

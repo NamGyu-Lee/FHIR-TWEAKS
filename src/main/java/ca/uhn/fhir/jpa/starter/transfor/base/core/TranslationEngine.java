@@ -4,53 +4,66 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.context.FhirVersionEnum;
 import ca.uhn.fhir.context.support.IValidationSupport;
 import ca.uhn.fhir.jpa.provider.BaseJpaProvider;
+import ca.uhn.fhir.jpa.starter.terminology.util.FHIRUtils;
 import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationRemoteConfigProperties;
+import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.gclient.IOperationUnnamed;
 import ca.uhn.fhir.util.ParametersUtil;
 import lombok.NonNull;
 import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.instance.model.api.IBaseParameters;
-import org.hl7.fhir.r4.model.CodeSystem;
+import org.hl7.fhir.r4.model.*;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Iterator;
 
-/** 2023. 11. 24.
+/**
+ * 2023. 11. 24.
  * Code 간 변환로직의 대한 세부적인 정의를 나타낸다.
  * RemoteTerminolgoyServerValidationSupport.invokeRemoteValidateCode 을 전체적으로 참고하여 구성하였다.
- *
  */
 public class TranslationEngine extends BaseJpaProvider {
 
 	private CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties;
 
-	public TranslationEngine(CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties){
+	public TranslationEngine(FhirContext context, CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties){
 		this.customValidationRemoteConfigProperties = customValidationRemoteConfigProperties;
+		this.setContext(context);
 	}
 
 	/**
-	 * 2023. 11. 24. 해당 source 값을 표준 규격에 알맞은 코드로 치환해준다.
-	 * 해당 기능은 HAPI FHIR 의 RemoteTerminolgoyServerValidationSupport.invokeRemoteValidateCode 를 참고하여 구성하였다.
+	 *  2023. 11. 24. 해당 source 값을 표준 규격에 알맞은 코드로 치환해준다.
+	 *  해당 기능은 HAPI FHIR 의 RemoteTerminolgoyServerValidationSupport.invokeRemoteValidateCode 를 참고하여 구성하였다.
 	 *
-	 * @param source  the source
-	 * @param codeUrl the code url
-	 * @return the string
+	 * @param source              the source
+	 * @param sourceURL           the source url
+	 * @param targetConceptSystem the target concept system
+	 * @param version             the version
+	 * @return the String 치환된 코드결과
 	 * @throws IllegalArgumentException the illegal argument exception
 	 */
-	public String translateCode(@NonNull String source, @NonNull String codeUrl) throws IllegalArgumentException{
-		// 1. 해당 코드 시스템의 local 검색
-		String localUrl = customValidationRemoteConfigProperties.getLocalURL();
-		System.out.println("[DEV] localURL : " + localUrl);
-
-		IValidationSupport.LookupCodeResult result = convert(source, null, null, codeUrl, localUrl);
-		if(result.isFound()){
-			return result.getSearchedForCode();
-		}else if(customValidationRemoteConfigProperties.isRemoteTerminologyYn()){
-			// 2. 코드값이 없다면 remote  서버 체크
-			String remoteUrl = customValidationRemoteConfigProperties.getRemoteURL();
-			IValidationSupport.LookupCodeResult resultRemoteServer = convert(source, null, null, codeUrl, remoteUrl);
+	public String translateCode(@NonNull String source, @NonNull String sourceURL, @NonNull String targetConceptSystem, String version) throws IllegalArgumentException{
+		// 1. 해당 코드 시스템의 local 검색(로컬 우선)
+		if(customValidationRemoteConfigProperties.isLocalTerminologyYn()){
+			String localUrl = customValidationRemoteConfigProperties.getLocalURL();
+			String result = convert(source, sourceURL, targetConceptSystem, version, localUrl);
+			if(!StringUtils.isEmpty(result)){
+				return result;
+			}
 		}
-		throw new IllegalArgumentException("해당 코드를 찾을 수 없어 오류가 발생하였습니다. Source : " + source + " / CodeSystem URL :" + codeUrl);
+
+		// 2. remote 서버에서 검색
+		if(customValidationRemoteConfigProperties.isRemoteTerminologyYn()){
+			String remoteUrl = customValidationRemoteConfigProperties.getRemoteURL();
+			String remoteResult = convert(source, sourceURL, targetConceptSystem, version, remoteUrl);
+			if(!StringUtils.isEmpty(remoteResult)){
+				return remoteResult;
+			}
+		}
+
+		return "";
+		//throw new IllegalArgumentException("해당 코드를 찾을 수 없어 오류가 발생하였습니다. Source : " + source + " / CodeSystem URL :" + codeUrl);
 	}
 
 	private IGenericClient provideClient(String url) {
@@ -58,33 +71,63 @@ public class TranslationEngine extends BaseJpaProvider {
 		return retVal;
 	}
 
-	private IValidationSupport.LookupCodeResult convert(@NonNull String theCode, String theSystem, String theDisplayLanguage, @NonNull String codeUrl, @NonNull String fhirServerUrl){
+	private String convert(@NonNull String theCode, @NonNull String theSourceUrl, @NonNull String theTargetCodeSystem, String conceptMapVersion, @NonNull String fhirServerUrl){
 		// 서버 정의
 		IGenericClient client = this.provideClient(fhirServerUrl);
 		FhirContext fhirContext = client.getFhirContext();
-		IBaseParameters params = ParametersUtil.newInstance(fhirContext);
 		FhirVersionEnum fhirVersion = fhirContext.getVersion().getVersion();
 
-		// 파라미터 추가
-		ParametersUtil.addParameterToParametersString(fhirContext, params, "code", theCode);
+		Parameters parameters = new Parameters();
 
-		if (!StringUtils.isEmpty(theSystem)) {
-			ParametersUtil.addParameterToParametersString(fhirContext, params, "system", theSystem);
+		// Target source url
+		parameters.addParameter().setName("url").setValue(new StringType(theSourceUrl.replaceAll("'", "")));
+
+		// Target URL
+		parameters.addParameter().setName("targetScope").setValue(new StringType(theTargetCodeSystem.replaceAll("'", "")));
+
+		// Version
+		if (!StringUtils.isEmpty(conceptMapVersion)){
+			parameters.addParameter().setName("conceptMapVersion").setValue(new StringType(conceptMapVersion.replaceAll("'", "")));
 		}
 
-		if (!StringUtils.isEmpty(theDisplayLanguage)) {
-			ParametersUtil.addParameterToParametersString(fhirContext, params, "language", theDisplayLanguage);
-		}
+		// 최종값
+		parameters.addParameter().setName("code").setValue(new StringType(theCode.replaceAll("'", "")));
 
 		// 조회
 		if(fhirVersion.isEquivalentTo(FhirVersionEnum.R4)){
-			IBaseParameters outcome = (IBaseParameters)((IOperationUnnamed)client.operation().onType(CodeSystem.class)).named("$lookup").withParameters(params).useHttpGet().execute();
-			if (outcome != null && !outcome.isEmpty()) {
-				IValidationSupport.LookupCodeResult result = this.generateLookupCodeResultR4(theCode, theSystem, (org.hl7.fhir.r4.model.Parameters)outcome);
-				return result;
-			}else{
-				throw new IllegalArgumentException(" 해당 FHIR 서버에서 코드가 존재하지 않아 오류가 발생하였습니다.");
+			Parameters outcome = client
+				.operation()
+				.onType(ConceptMap.class)
+				.named("$translate")
+				.withParameters(parameters)
+				.useHttpGet() // HTTP GET 사용
+				.execute();
+
+			if(outcome.getParameter().size() <= 0){
+				throw new IllegalArgumentException("Terminology 서버간의 연동과정에서 오류가 발생하였습니다. 서버의 응답이 없습니다.");
 			}
+			Parameters.ParametersParameterComponent retParam = outcome.getParameter().get(0);
+			if(retParam == null){
+				throw new IllegalArgumentException(fhirServerUrl + " Terminology 서버간의 연동과정에서 오류가 발생하였습니다.");
+			}else{
+				BooleanType type = (BooleanType) retParam.getValue();
+				boolean booleanValue = type.getValue();
+				if(booleanValue){
+					//System.out.println("...................................... it has..!!!");
+					for(Parameters.ParametersParameterComponent matchParameter : outcome.getParameter()){
+						//System.out.println(" >>> " + matchParameter.getName());
+						if(matchParameter.getName().equals("match")){
+							// 항상 가장 첫번째로 조회된 것을 리턴
+							Parameters.ParametersParameterComponent partParameter = matchParameter.getPart().get(0);
+							Coding coding = (Coding) partParameter.getValue();
+							return coding.getCode();
+						}
+					}
+				}else{
+					throw new IllegalArgumentException(" 해당 Terminology 값이 존재하지 않습니다. " + fhirServerUrl + "  / code : " + theCode + " / url : " + theSourceUrl);
+				}
+			}
+			throw new IllegalArgumentException(" 해당 Terminology 값이 존재하지 않습니다. " + fhirServerUrl + "  / code : " + theCode + " / url : " + theSourceUrl);
 		}else{
 			throw new IllegalArgumentException(" 해당 FHIR 서버 " + fhirServerUrl + " 는 R4 기반의 FHIR 서버가 아닙니다.");
 		}

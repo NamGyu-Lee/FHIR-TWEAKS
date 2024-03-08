@@ -34,8 +34,8 @@ public class TransformEngine{
 
 	private static final org.slf4j.Logger ourLog = org.slf4j.LoggerFactory.getLogger(TransformEngine.class);
 
-	public TransformEngine(CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties){
-		translationEngine = new TranslationEngine(customValidationRemoteConfigProperties);
+	public TransformEngine(FhirContext context, CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties){
+		translationEngine = new TranslationEngine(context, customValidationRemoteConfigProperties);
 	}
 
 	// 룰 실행부분
@@ -62,8 +62,14 @@ public class TransformEngine{
 				target.put(ruleNode.getTargetElementNm(), ruleNode.getSourceReferenceNm().replaceAll("'", ""));
 			}else if(ruleNode.getTransactionType().equals(TransactionType.TRANSLATION)){
 				List<String> argumentParam = MapperUtils.extractMultipleValues(ruleNode.getSourceReferenceNm());
-				String exchangedCodeValue = translationEngine.translateCode(argumentParam.get(0), argumentParam.get(1));
-				target.put(ruleNode.getTargetElementNm(), exchangedCodeValue);
+				if(source.get(argumentParam.get(0)) == null){
+					// source에 데이터가 없는 경우.
+					throw new IllegalArgumentException("소스의 데이터에 " + argumentParam.get(0) + " 가 없습니다.");
+				}else{
+					String referenceValue = (String) source.get(argumentParam.get(0).trim());
+					String exchangedCodeValue = translationEngine.translateCode(referenceValue, argumentParam.get(1), argumentParam.get(2), argumentParam.get(3));
+					target.put(ruleNode.getTargetElementNm(), exchangedCodeValue);
+				}
 			}else if(ruleNode.getTransactionType().equals(TransactionType.COPY_WITH_DEFAULT)){
 				List<String> argumentParam = MapperUtils.extractMultipleValues(ruleNode.getSourceReferenceNm());
 				boolean isNullData;
@@ -157,14 +163,18 @@ public class TransformEngine{
 		// 2. 룰 중에 key 값은 따로 모아놓기
 		if(ruleNode.isIdentifierNode()){
 			String answer = target.getString(ruleNode.getTargetElementNm());
-			setIdentifierGenerator(source.getString("resourcetype"), ruleNode.getSourceReferenceNm(), answer);
+			setIdentifierGenerator(source.getString("resource_type"), ruleNode.getSourceReferenceNm(), answer);
 		}
 
 		return target;
 	}
 
-	// 룰을 보유한 노드의 Recursive부분
-	// TODO. 2023. 11. 20. Array 로 Source 가 여러개 들어오는 경우의 대하여 처리하기.
+	/**
+	 *  배열형 구조의 데이터 결과의 대한 병합 함수
+	 * @param activateTransNode the activate trans node
+	 * @return the activate trans node
+	 * @throws JSONException the json exception
+	 */
 	public ActivateTransNode recursiveActTransNode(ActivateTransNode activateTransNode) throws JSONException {
 		// execute
 		RuleNode ruleNode = activateTransNode.getRuleNode();
@@ -383,7 +393,8 @@ public class TransformEngine{
 				}
 			}
 
-			System.out.println("v : " + retJsonObject);
+			// TODO. 작업 완료 시 debug로 내리기.
+			ourLog.info("생성 결과 : " + retJsonObject);
 
 			FhirContext context = new FhirContext(FhirVersionEnum.R4);
 			IBaseResource resource = context.newJsonParser().parseResource(retJsonObject.toString());

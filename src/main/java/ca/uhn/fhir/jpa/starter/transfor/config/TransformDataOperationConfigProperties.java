@@ -2,6 +2,7 @@ package ca.uhn.fhir.jpa.starter.transfor.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -11,6 +12,7 @@ import java.util.Set;
  *  EMR 기반 등의 데이터의 대한 변환 후 FHIR로 적재하는 작업의 대한 설정을 정의한다.
  */
 @Configuration
+@Primary
 public class TransformDataOperationConfigProperties {
 
 	@Value("${service.transfor.enabled}")
@@ -43,7 +45,6 @@ public class TransformDataOperationConfigProperties {
 		resourceUpperSortingReferenceSet.add("organization");
 		resourceUpperSortingReferenceSet.add("practitioner");
 		resourceUpperSortingReferenceSet.add("practitionerrole");
-		resourceUpperSortingReferenceSet.add("practitionData");
 		resourceUpperSortingReferenceSet.add("medication");
 		resourceUpperSortingReferenceSet.add("patient");
 

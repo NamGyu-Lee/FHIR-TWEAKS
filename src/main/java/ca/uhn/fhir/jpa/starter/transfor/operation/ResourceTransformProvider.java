@@ -3,6 +3,8 @@ package ca.uhn.fhir.jpa.starter.transfor.operation;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.jpa.provider.BaseJpaProvider;
 import ca.uhn.fhir.jpa.starter.transfor.base.code.ErrorHandleType;
+import ca.uhn.fhir.jpa.starter.transfor.base.code.RuleType;
+import ca.uhn.fhir.jpa.starter.transfor.base.code.TransactionType;
 import ca.uhn.fhir.jpa.starter.transfor.base.core.MetaEngine;
 import ca.uhn.fhir.jpa.starter.transfor.base.core.TransformEngine;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.MetaRule;
@@ -29,6 +31,7 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Primary;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -56,23 +59,27 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 	private ReferenceCacheHandler referenceCacheHandler;
 
 	private TransformDataOperationConfigProperties transformDataOperationConfigProperties;
+
 	@Autowired
+	@Primary
 	void setTransformDataOperationConfigProperties(TransformDataOperationConfigProperties transformDataOperationConfigProperties){
 		this.transformDataOperationConfigProperties = transformDataOperationConfigProperties;
 		transformUtil = new TransformUtil(transformDataOperationConfigProperties);
+		referenceCacheHandler = new ReferenceCacheHandler();
+		metaEngine = new MetaEngine(fn, transformDataOperationConfigProperties, referenceCacheHandler);
 	}
 
 	private CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties;
+
 	@Autowired
+	@Primary
 	void setCustomValidationRemoteConfigProperties(CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties){
 		this.customValidationRemoteConfigProperties = customValidationRemoteConfigProperties;
+		transformEngine = new TransformEngine(this.getContext(), customValidationRemoteConfigProperties);
 	}
 
 	public ResourceTransformProvider(FhirContext fn){
 		this.fn = fn;
-		referenceCacheHandler = new ReferenceCacheHandler();
-		metaEngine = new MetaEngine(fn, transformDataOperationConfigProperties, referenceCacheHandler);
-		transformEngine = new TransformEngine(customValidationRemoteConfigProperties);
 	}
 
 	@Operation(
@@ -142,8 +149,8 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 		String mapType = "";
 		try {
 			JSONObject sourceObject = new JSONObject(searchFirstSourceData.toString());
-			mapType = sourceObject.getString("maptype");
-			if(mapType == null){
+			mapType = sourceObject.getString("map_type");
+			if(mapType.isEmpty() || mapType.isBlank()){
 				ourLog.error("[ERR] 해당 리소스에 MapType이 없습니다.");
 				throw new IllegalArgumentException("[ERR] 해당 리소스에 MapType이 없습니다.");
 			}else{
@@ -151,7 +158,9 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 			}
 
 		}catch(JSONException e){
-			throw new IllegalArgumentException("[ERR] Source 데이터를 조회하는 시점에서 JSONException 오류가 발생하였습니다.");
+			ourLog.error("다음과같은 source JSON이 오류를 발생시켰습니다.");
+			ourLog.error(searchFirstSourceData.toString());
+			throw new IllegalArgumentException("[ERR] Source 데이터의 맵을 조회하는 시점에서 JSONException 오류가 발생하였습니다.");
 		}
 
 		// 2.1. metaRule 구성
@@ -188,6 +197,9 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 						System.out.println("------------------");
 					}
 
+					// 캐시값 조회 후 추가
+					metaEngine.setReference(metaRule, sourceObject);
+
 					// 2.4.1. FHIR 데이터 생성
 					IBaseResource resource = transformEngine.transformDataToResource(ruleNodeList, sourceObject);
 
@@ -221,5 +233,4 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 			ourLog.info(arg);
 		}
 	}
-
 }
