@@ -155,7 +155,7 @@ public class TransformUtil {
 				arraySizeMap.put(keyValue, arrangeSize + 1);
 			} else {
 				// 비존재 시
-				jsonObj.addProperty("merged_row_count", 1);
+				jsonObj.addProperty("merged_row_count", 0);
 				mergedMap.put(keyValue, jsonObj);
 				arraySizeMap.put(keyValue, 1);
 			}
@@ -180,12 +180,12 @@ public class TransformUtil {
 		Set<String> sourceSet = source.keySet();
 		int mergedCount = 0;
 		for (String eachKey : sourceSet) {
-			mergedCount = mergedCount + 1;
 			if(boundKeySet.contains(eachKey) && segNumber == 1) {
-				System.out.println("segNumber Operation..! : " + eachKey);
 				retObject.add(eachKey + "_" + String.valueOf(segNumber), source.get(eachKey));
+				mergedCount = mergedCount + 1;
 			}else if(boundKeySet.contains(eachKey) && segNumber >= 2){
 				retObject.add(eachKey + "_" + String.valueOf(segNumber), source.get(eachKey));
+				mergedCount = mergedCount + 1;
 			}
 		}
 
@@ -248,7 +248,6 @@ public class TransformUtil {
 				throw new IllegalArgumentException("Source에서 값을 찾을 수 없습니다. " + requestMap + "   > " + partOfKeySet);
 			}
 	}
-
 
 	/**
 	 * Json 내에 있는 계층구조 를 따라가서 조회해준다.

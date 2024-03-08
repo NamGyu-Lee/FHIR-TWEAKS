@@ -113,9 +113,7 @@ public class TranslationEngine extends BaseJpaProvider {
 				BooleanType type = (BooleanType) retParam.getValue();
 				boolean booleanValue = type.getValue();
 				if(booleanValue){
-					//System.out.println("...................................... it has..!!!");
 					for(Parameters.ParametersParameterComponent matchParameter : outcome.getParameter()){
-						//System.out.println(" >>> " + matchParameter.getName());
 						if(matchParameter.getName().equals("match")){
 							// 항상 가장 첫번째로 조회된 것을 리턴
 							Parameters.ParametersParameterComponent partParameter = matchParameter.getPart().get(0);

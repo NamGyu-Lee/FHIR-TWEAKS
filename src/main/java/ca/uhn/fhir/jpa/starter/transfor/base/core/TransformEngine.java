@@ -327,20 +327,15 @@ public class TransformEngine{
 		return ruleNodeList;
 	}
 
-	// 실제 동작함수
 	public IBaseResource transformDataToResource(List<RuleNode> nonArrayedRuleNodeList, @NonNull JSONObject source){
-
-		ourLog.info("start...???");
-		// 1.1. 트리에 배열구조의 대한 추가 트리 구성 20240207
-		//List<RuleNode> ruleNodeList = MapperUtils.createAdditionTreeForArray(nonArrayedRuleNodeList, source);
-		ourLog.info("end...???");
-
+		ourLog.info("-------------------------------------------------------------- 데이터 생성 시작...");
+		
 		// logging
 		for(RuleNode eachRuleNode : nonArrayedRuleNodeList){
 			// DFS 기반 맵서칭
 			MapperUtils.printRuleAndRuleTypeInNodeTree(eachRuleNode);
 		}
-
+		
 		// 2. 변환 수행
 		JSONObject targetObject = new JSONObject();
 		Set<String> namedKeySet = new LinkedHashSet<>();
@@ -402,7 +397,8 @@ public class TransformEngine{
 			// 3. 변환의 대한 키 생성
 			resource.setId(generatorIdentifierForResource(resource.fhirType()));
 
-			ourLog.info(" Operation Result : " + retJsonObject.toString());
+			ourLog.info("FHIR Resource 변환 결과 : " + retJsonObject.toString());
+			ourLog.info("-------------------------------------------------------------- 데이터 생성 종료...");
 
 			return resource;
 		}catch(Exception e){

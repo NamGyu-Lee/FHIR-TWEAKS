@@ -3,6 +3,7 @@ package ca.uhn.fhir.jpa.starter;
 import ca.uhn.fhir.jpa.starter.transfor.base.code.RuleType;
 import ca.uhn.fhir.jpa.starter.transfor.base.code.TransactionType;
 import ca.uhn.fhir.jpa.starter.transfor.base.core.TransformEngine;
+import ca.uhn.fhir.jpa.starter.transfor.base.map.MetaRule;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.RuleNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.util.MapperUtils;
 import ca.uhn.fhir.jpa.starter.transfor.util.TransformUtil;
@@ -58,6 +59,7 @@ public class SampleMappingTest {
 		"  \"code\" : \"소스D의 코드\"\n" +
 		"}\n";
 
+
 	String argMap =
 		"* resourceType='Test'\n" +
 		"* testv\n" +
@@ -80,9 +82,28 @@ public class SampleMappingTest {
 		"  * 'a'\n"+
 		"  * 'b'\n"+
 		"  * 'c'\n"+
+		"  * (arraytest).arraytwo\n"+ // 중복되는 데이터의 관리
+		"   * detail=detail\n"+
+		"   * code=code\n" +
 		"* (arraytest).arraytwo\n"+ // 중복되는 데이터의 관리
 		" * detail=detail\n"+
 		" * code=code\n"
+		;
+
+	String argMap3 =
+		"* (test).test\n" + // [ {}, {} ]
+			" * value1=value1\n" +
+			" * value2=value2\n" +
+			" * value3=value3\n"+
+			" * value1=value1\n" +
+			" * value2=value2\n" +
+			" * value3=value3\n"+
+			"* (MERGE)(testmerge).testmerge\n" +
+			" * detail=detail\n" +
+			" * code=code\n"+
+			" * (array).hah\n"+
+			"  * pu=code\n"+
+			"* humm='323'\n"
 		;
 
 	@Test
@@ -94,6 +115,9 @@ public class SampleMappingTest {
 		// meta 에서 생성할 데이터
 		Set<String> indexKeySet = Set.of("value1", "value2", "value3");
 		Set<String> mergeKeySet = Set.of("detail", "code");
+		MetaRule metaRule = new MetaRule();
+		metaRule.setMergeDataKey(mergeKeySet);
+		metaRule.setCacheDataKey(indexKeySet);
 
 		// source 데이터
 		List<JsonElement> elementList = new ArrayList<>();
@@ -128,7 +152,7 @@ public class SampleMappingTest {
 
 		// 병합 활용 동작
 		System.out.println("------------------");
-		nodeList.set(0, MapperUtils.createTreeForArrayWithRecursive(nodeList.get(0), sourceObject));
+		nodeList.set(0, MapperUtils.createTreeForArrayWithRecursive(metaRule, nodeList.get(0), sourceObject));
 		System.out.println("------------------");
 		MapperUtils.printRuleAndRuleTypeInNodeTree(nodeList.get(0));
 
@@ -140,6 +164,9 @@ public class SampleMappingTest {
 		// meta 에서 생성할 데이터
 		Set<String> indexKeySet = Set.of("value1", "value2", "value3");
 		Set<String> mergeKeySet = Set.of("detail", "code");
+		MetaRule metaRule = new MetaRule();
+		metaRule.setMergeDataKey(mergeKeySet);
+		metaRule.setCacheDataKey(indexKeySet);
 
 		// source 데이터
 		List<JsonElement> elementList = new ArrayList<>();
@@ -151,19 +178,10 @@ public class SampleMappingTest {
 		element = parser.parse(sourceB);
 		elementList.add(element);
 
-		element = parser.parse(sourceC);
+		element = parser.parse(sourceA);
 		elementList.add(element);
 
-		element = parser.parse(sourceC);
-		elementList.add(element);
-
-		element = parser.parse(sourceC);
-		elementList.add(element);
-
-		element = parser.parse(sourceB);
-		elementList.add(element);
-
-		element = parser.parse(sourceD);
+		element = parser.parse(sourceA);
 		elementList.add(element);
 
 		// 병합
@@ -177,6 +195,7 @@ public class SampleMappingTest {
 		// 변환
 		for (JsonObject eachObj : obj){
 			// 매 회별 변환 맵 구성
+			//List<RuleNode> nodeList = MapperUtils.createTree(argMap);
 			List<RuleNode> nodeList = MapperUtils.createTree(argMap);
 			MapperUtils.printRuleAndRuleTypeInNodeTree(nodeList.get(0));
 
@@ -189,10 +208,9 @@ public class SampleMappingTest {
 			int ac = 0;
 			for(RuleNode mainNodeList : nodeList){
 				System.out.println("------------------");
-				nodeList.set(ac++, MapperUtils.createTreeForArrayWithRecursive(mainNodeList, sourceObject));
+				nodeList.set(ac++, MapperUtils.createTreeForArrayWithRecursive(metaRule, mainNodeList, sourceObject));
 				System.out.println("------------------");
 			}
-			MapperUtils.printRuleAndRuleTypeInNodeTree(nodeList.get(0));
 
 			String eachObjToStr = eachObj.toString();
 			System.out.println(eachObjToStr);
@@ -282,7 +300,7 @@ public class SampleMappingTest {
 
 	String argMap2 =
 	"* resourceType='Test'\n" +
-	"* (testv).testv\n" +
+	"* (<)MERGE)(testv).testv\n" +
 	" * (normalStringArray).normalStringArray\n" +  // [ '', '' ]
 	"  * 'aaa'\n" +
 	"  * 'bbb'\n"

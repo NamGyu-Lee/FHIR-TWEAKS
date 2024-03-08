@@ -182,7 +182,6 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 			try {
 				// 각 오브젝트별 동작 수행 시작
 				JSONObject sourceObject = new JSONObject(eachRowJsonObj.toString());
-
 				try {
 					 // 4.1. 매 회별 맵 구성
 					List<RuleNode> ruleNodeList = transformEngine.createRuleNodeTree(mapScript);
@@ -192,9 +191,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 
 					// 병합 활용 맵 재생성
 					for(int j = 0; ruleNodeList.size() > j; j++){
-						System.out.println("------------------");
-						ruleNodeList.set(j, MapperUtils.createTreeForArrayWithRecursive(ruleNodeList.get(j), sourceObject));
-						System.out.println("------------------");
+						ruleNodeList.set(j, MapperUtils.createTreeForArrayWithRecursive(metaRule, ruleNodeList.get(j), sourceObject));
 					}
 
 					// 캐시값 조회 후 추가

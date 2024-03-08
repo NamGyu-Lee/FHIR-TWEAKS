@@ -63,9 +63,11 @@ public class RuleNode {
 	public RuleNode copyNode(){
 		RuleNode cpNode = new RuleNode(this.getParent(), this.rule, this.level, this.isIdentifierNode, this.isMergedNode);
 		if(cpNode.getRuleType().equals(RuleType.TRANS)){
+			cpNode.setTargetElementNm(cpNode.getRule());
 			cpNode.setTransactionType(RuleUtils.classifyTransactionType(cpNode.getRule()));
 			cpNode.setSourceReferenceNm(RuleUtils.getSourceReferenceName(cpNode.getRule()));
 			cpNode.setTargetElementNm(RuleUtils.getTargetElementName(cpNode.getRule()));
+			cpNode.setMergedNode(isMergedNode);
 		}else{
 			cpNode.setTransactionType(RuleUtils.classifyTransactionType(cpNode.getRule()));
 			cpNode.setTargetElementNm(cpNode.getRule());
