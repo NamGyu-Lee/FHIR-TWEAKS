@@ -33,6 +33,9 @@ public class TransformDataOperationConfigProperties {
 	@Value("${service.transfor.ignorenoencounter}")
 	private boolean transforIgnoreHasNoEncounter;
 
+	@Value("${service.transfor.mergeallwithnoinsertmergerule}")
+	private boolean transforMergeAllWithNoInsertMergeRule;
+
 	// 해당 순서대로 변환하는 source 데이터의 가장 뒤쪽에 배치된다.
 	private Set<String> resourceLowerSortingReferenceSet;
 
@@ -71,6 +74,8 @@ public class TransformDataOperationConfigProperties {
 	public boolean isTransforLogging() { return transforLogging; }
 
 	public boolean isTransforIgnoreHasNoEncounter() {	return transforIgnoreHasNoEncounter; }
+
+	public boolean isTransforMergeAllWithNoInsertMergeRule() {	return transforMergeAllWithNoInsertMergeRule; }
 
 	public Set<String> getResourceLowerSortingReferenceSet() {
 		return resourceLowerSortingReferenceSet;

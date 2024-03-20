@@ -1,18 +1,38 @@
 * metadata
  * mapping
-  * cacheKey = inst_cd, bc_no, exec_prcp_uniq_no
-  * mergeKey = ctgy_cd, rslt_unit_cd, rslt_val, edi_cd
+  * cacheKey = rcpt_no, pat_id, dr_id, insp_dt, insp_rpt_dt, subj_id
+  * mergeKey = insp_nm, insp_rslt, unit, up_ref_val, up_ref_unit, lwer_ref_val, lwer_ref_unit
   * error_policy = exception
 -----
 * resourceType='Observation'
-* id=(KEY)MERGE('MR', '.', 'organization_id_temp', '.', prcp_dd, '.', exec_prcp_uniq_no)
+* id=(KEY)MERGE('LAB', '.', rcpt_no, '.', pat_id, '.', insp_rpt_dt)
 * state='final'
+* category
+ * system='http://terminology.hl7.org/CodeSystem/observation-category'
+ * code=insp_div
+* code
+ * (coding).coding
+  * system='http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure'
+  * value=insp_cd
+* subject
+ * reference=MERGE('Patient/', pat_id)
+* encounter
+ * reference=MERGE('Encounter/','test_encounter_id')
+* effectiveDateTime=DATE(insp_dt, 'yyyyMMdd', 'yyyy-MM-dd')
 * (MERGE)(component).component
  * valueQuantity
-  * value=rslt_val
-  * unit=rslt_unit_cd
+  * value=insp_rslt
+  * unit=unit
   * system='http://unitsofmeasure.org'
  * code
   * coding
    * system='http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure'
-   * code=edi_cd
+   * code=insp_cd
+   * display=insp_nm
+ * referenceRange
+  * low
+   * value=lwer_ref_val
+   * unit=lwer_ref_unit
+  * high
+   * value=up_ref_val
+   * unit=up_ref_unit

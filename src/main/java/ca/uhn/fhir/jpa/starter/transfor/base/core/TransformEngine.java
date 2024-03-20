@@ -99,6 +99,9 @@ public class TransformEngine{
 				}else if(argumentParam.size() == 2){
 					target.put(ruleNode.getTargetElementNm(), ((String)source.get(argumentParam.get(0))).substring(Integer.parseInt(argumentParam.get(1))));
 				}else{
+					ourLog.error("Execute Rule 중에 예상치 못한 함수가 들어왔습니다. Split은 반드시 파라미터가 2개 혹은 3개여야합니다.");
+					ourLog.error("  ㄴ Rule : " + ruleNode.getSourceReferenceNm());
+					ourLog.error("  ㄴ 파라미터 크기 : " + argumentParam.size());
 					throw new JSONException("Execute Rule 중에 예상치 못한 함수가 들어왔습니다. Split은 반드시 파라미터가 2개 혹은 3개여야합니다.");
 				}
 			}else if(ruleNode.getTransactionType().equals(TransactionType.MERGE)){
@@ -134,6 +137,9 @@ public class TransformEngine{
 				String argument = source.getString(argumentParam.get(0));
 				int argumentSize= argumentParam.size();
 				if(argumentSize % 2 != 1 || argumentSize == 1){
+					ourLog.error("[ERR] CASE문은 항상 샘플-조건-결과 순으로 나열되어야합니다.");
+					ourLog.error("  ㄴ Rule : " + ruleNode.getSourceReferenceNm());
+					ourLog.error("  ㄴ source : " + argument);
 					throw new IllegalArgumentException("[ERR] CASE문은 항상 샘플-조건-결과 순으로 나열되어야합니다.");
 				}
 
@@ -151,9 +157,49 @@ public class TransformEngine{
 				}
 
 				if(!hasAnswer){
-					throw new IllegalArgumentException("[ERR] CASE문에 정의되지 않은 값이 입력되어 오류가 발생하였습니다.");
+					ourLog.error("[ERR] CASE 문에 정의되지 않은 값이 입력되어 오류가 발생하였습니다.");
+					ourLog.error("  ㄴ Rule : " + ruleNode.getSourceReferenceNm());
+					ourLog.error("  ㄴ source : " + argument);
+					throw new IllegalArgumentException("[ERR] CASE문에 정의되지 않은 값이 입력되어 오류가 발생하였습니다.. ");
 				}
 
+			}else if(ruleNode.getTransactionType().equals(TransactionType.TYPE)){ // TYPE(A, NUMBER, B, C)
+				List<String> argumentParam = MapperUtils.extractMultipleValues(ruleNode.getSourceReferenceNm());
+				String argument = source.getString(argumentParam.get(0));
+				if(argumentParam.size() != 4){
+					ourLog.error("[ERR] TYPE 문에 정의되지 않은 값이 입력되어 오류가 발생하였습니다.");
+					ourLog.error("  ㄴ Rule : " + ruleNode.getSourceReferenceNm());
+					ourLog.error("  ㄴ source : " + argument);
+					throw new IllegalArgumentException("[ERR] TYPE 문에 정의되지 않은 값이 입력되어 오류가 발생하였습니다.");
+				}else{
+					String eachCondition = argumentParam.get(1);
+					String yesResult = argumentParam.get(2);
+					String noResult = argumentParam.get(3);
+					if(eachCondition.equals("'NUMBER'")){
+						try{
+							if(!argument.isBlank() || !argument.isEmpty()){
+								Float.parseFloat(argument);
+								Integer.parseInt(argument);
+
+								if(yesResult.contains("'")){
+									target.put(ruleNode.getTargetElementNm(), yesResult.replaceAll("'", "") );
+								}else{
+									target.put(ruleNode.getTargetElementNm(), source.get(yesResult));
+								}
+							}else{
+								throw new NumberFormatException("값이 비었습니다.");
+							}
+						}catch(NumberFormatException e){
+							if(noResult.contains("'")){
+								target.put(ruleNode.getTargetElementNm(), noResult.replaceAll("'", "") );
+							}else{
+								target.put(ruleNode.getTargetElementNm(), source.get(noResult));
+							}
+						}
+					}else{
+						throw new IllegalArgumentException("[ERR] 현재 TYPE 명령어는 NUMBER(INT, FLOAT 검증)만 지원하고 있습니다.");
+					}
+				}
 			}
 		} else if (ruleNode.getRuleType().equals(RuleType.CREATE_ARRAY)){
 			String targetText = RuleUtils.getArrayTypeObjectNameTarget(ruleNode.getRule());
@@ -175,7 +221,7 @@ public class TransformEngine{
 	 * @return the activate trans node
 	 * @throws JSONException the json exception
 	 */
-	public ActivateTransNode recursiveActTransNode(ActivateTransNode activateTransNode) throws JSONException {
+	public ActivateTransNode recursiveActTransNode(ActivateTransNode activateTransNode) throws JSONException{
 		// execute
 		RuleNode ruleNode = activateTransNode.getRuleNode();
 		JSONObject source = activateTransNode.getSource();
@@ -394,8 +440,10 @@ public class TransformEngine{
 			FhirContext context = new FhirContext(FhirVersionEnum.R4);
 			IBaseResource resource = context.newJsonParser().parseResource(retJsonObject.toString());
 
+			ourLog.info("-------------------------------------------------------------- FHIR Resource 키 없는 경우 identifier 활용 id값 생성..");
 			// 3. 변환의 대한 키 생성
-			resource.setId(generatorIdentifierForResource(resource.fhirType()));
+			// 키가 없는 경우에만 활용하기
+			// resource.setId(generatorIdentifierForResource(resource.fhirType()));
 
 			ourLog.info("FHIR Resource 변환 결과 : " + retJsonObject.toString());
 			ourLog.info("-------------------------------------------------------------- 데이터 생성 종료...");

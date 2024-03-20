@@ -275,12 +275,12 @@ public class SampleTest {
 
 		// 2024. 02. 27. 테스트 작업 완료에 따른 추가 수정
 		System.out.println("-- 1");
-		System.out.println(TransformUtil.mergeJsonObjectPattern(keySet, boundKeySet, elementList));
+		System.out.println(TransformUtil.mergeJsonObjectPattern(keySet, boundKeySet, elementList, false));
 
 		System.out.println("-- 2");
-		System.out.println(TransformUtil.mergeJsonObjectPattern(keySet, new HashSet<String>(), elementList));
+		System.out.println(TransformUtil.mergeJsonObjectPattern(keySet, new HashSet<String>(), elementList, false));
 		try {
-			String v = TransformUtil.mergeJsonObjectPattern(keySet, new HashSet<String>(), elementList).get(1).toString();
+			String v = TransformUtil.mergeJsonObjectPattern(keySet, new HashSet<String>(), elementList, false).get(1).toString();
 			System.out.println(v);
 			JSONObject jsonObject = new JSONObject(v);
 			System.out.println(" VVV : " + MapperUtils.getSizeOfJSONObjectHasArray("body", jsonObject));

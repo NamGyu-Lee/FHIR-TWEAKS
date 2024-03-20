@@ -590,7 +590,7 @@ public class StarterJpaConfig {
 			ourLog.info(" > Transfor Data Opened.. ");
 			ourLog.info(" > Now Transfor Version : " + transformDataOperationConfigProperties.getServiceTarget());
 			// cmc 기반의 Transfor 적용
-			if ("cmc".equals(transformDataOperationConfigProperties.getServiceTarget())) {
+			if ("cmc_dtx".equals(transformDataOperationConfigProperties.getServiceTarget())) {
 				ourLog.info(" ㄴ> Cathoric Medical Centor Data exchange service Operation Provider registed. ");
 			}
 

@@ -1,8 +1,6 @@
 * metadata
  * mapping
   * error_policy = exception
-  * cacheKey = inst_cd, seq_no
-  * mergeKey = -
   * referenceData
    * referenceResource
     * target = Organization
@@ -12,44 +10,55 @@
     * target = PractitionerRole
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * subj_id -> subj_id :: -
+    * ord_dr_id -> ord_dr_id :: -
    * referenceResource
     * target = Patient
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * pat_id -> pat_id :: -
+    * pid -> pid :: -
    * referenceResource
     * target = Encounter
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * rcpt_no -> rcpt_no :: -
+    * pid -> pid :: -
+    * ord_dd -> ord_dd :: -
+    * ord_dept_cd -> ord_dept_cd :: -
 -----
 * resourceType='Observation'
-* id=(KEY)MERGE('MR', '.', Organization_id, '.', seq_no)
-* status=instp_sts
+* id=(KEY)MERGE('MR', '.', Organization_id, '.', prcp_dd, '.', exec_prcp_uniq_no)
+* state='final'
 * category
- * (coding).coding
-  * system='http://terminology.hl7.org/CodeSystem/observation-category'
-  * code=insp_div
+ * system='http://terminology.hl7.org/CodeSystem/observation-category'
+ * code=cls_cd
 * code
  * (coding).coding
   * system='http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure'
-  * value=insp_cd
- * text=insp_nm
+  * value=edi_cd
+ * text=test_cls_nm
 * subject
  * reference=MERGE('Patient/', Patient_id)
 * encounter
  * reference=MERGE('Encounter/',Encounter_id)
-* issued=DATE(insp_dt, 'yyyyMMdd', 'yyyy-MM-dd')
+* effectiveDateTime=DATE(prcp_dd, 'yyyyMMdd', 'yyyy-MM-dd')
 * valueQuantity
- * value=TYPE(insp_rslt, 'NUMBER', insp_rslt, '')
- * unit=unit
-* valueString
- * value=TYPE(insp_rslt, 'NUMBER', '', insp_rslt)
+ * value=rslt_val
+ * unit=rslt_unit_cd
 * (referenceRange).referenceRange
  * low
-  * value=NVL(lwer_ref_val, "")
-  * unit=NVL(lwer_ref_unit, "")
+  * value=rfvl_lwlm_val
  * high
-  * value=NVL(up_ref_val, "")
-  * unit=NVL(up_ref_unit, "")
+  * value=rfvl_uplm_val
+* component
+ * code
+  * (coding).coding
+   * system
+   * value
+ * value
+ * valueQuantity
+  * value=rslt_val
+  * unit=rslt_unit_cd
+ * (referenceRange).referenceRange
+  * low
+   * value=rfvl_lwlm_val
+  * high
+   * value=rfvl_uplm_val

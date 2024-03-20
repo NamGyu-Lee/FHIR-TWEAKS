@@ -1,8 +1,8 @@
 * metadata
  * mapping
   * error_policy = exception
-  * cacheKey = inst_cd, pat_id
-  * mergeKey = telno
+  * cacheKey = inst_cd, pid
+  * mergeKey = telType, telno
   * referenceData
    * referenceResource
     * target = Organization
@@ -10,9 +10,10 @@
     * inst_cd -> inst_cd :: -
 -----
 * resourceType='Patient'
-* id=(KEY)MERGE(Organization_id, '.', pat_id)
+* id=(KEY)MERGE(Organization_id, '.', pid)
 * meta
  * (profile).profile
+  * 'http://connectdtx.kr/fhir/StructureDefinition/connectdtx-patient'
   * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-patient'
 * (identifier).identifier
  * type
@@ -20,17 +21,18 @@
    * system='http://terminology.hl7.org/CodeSystem/v2-0203-1'
    * code='MR'
  * system='http://www.hl7korea.or.kr/Identifier/hira-krnpi'
- * value=MERGE(Organization_id, '.', pat_id)
+ * value=MERGE(Organization_id, '.', pid)
 * active='true'
 * (name).name
- * text=pat_flnm
+ * text=hng_nm
+ * given=eng_nm
 * (telecom).telecom
  * system=NVL(telType, 'phone')
  * value=telno
-* gender=CASE(sex_cd, 'male', 'male', 'female', 'female', 'unknown', 'unknown')
-* birthDate=DATE(brdt, 'yyyyMMdd', 'yyyy-MM-dd')
+* gender=CASE(sex_cd, 'M', 'male', 'F', 'female', 'U', 'unknown')
+* birthDate=DATE(brth_dd, 'yyyyMMdd', 'yyyy-MM-dd')
 * (address).address
- * text=addr
- * postalCode=zip
+ * text=detl_addr
+ * postalCode=zipcd
 * managingOrganization
- * reference=MERGE('Organization/', Organization_id)
+ * reference=MERGE('Organization/' ,Organization_id)

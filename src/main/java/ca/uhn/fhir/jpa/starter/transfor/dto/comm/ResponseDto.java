@@ -19,6 +19,8 @@ public class ResponseDto<T> implements Serializable {
 
 	private String errorReason = "-";
 
+	private int createCount;
+
 	T body;
 
 }

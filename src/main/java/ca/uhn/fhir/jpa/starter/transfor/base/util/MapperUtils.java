@@ -148,10 +148,14 @@ public class MapperUtils {
 				}else{
 					String mergeKeySingleStr = line.split("=")[1].trim();
 					String[] mergeKeyArray = mergeKeySingleStr.split(",");
-					for(String arg : mergeKeyArray){
-						mergeKeySet.add(arg.trim());
+					if("-".equals(mergeKeyArray[0])){
+						ourLog.info(" ... 해당 맵은 mergeKey를 활용하지 않습니다.");
+					}else{
+						for(String arg : mergeKeyArray){
+							mergeKeySet.add(arg.trim());
+						}
+						ourLog.info(" ... 해당 맵의 merge Key size : " + mergeKeySet.size());
 					}
-					ourLog.info(" ... 해당 맵의 merge Key size : " + mergeKeySet.size());
 				}
 				metaRule.setMergeDataKey(mergeKeySet);
 			}else if(line.contains("referenceResource")){
@@ -174,6 +178,7 @@ public class MapperUtils {
 			}
 		}
 		metaRule.setReferenceNodeList(referenceNodeList);
+
 
 		ourLog.info("---- created RuleNode information... ----");
 		ourLog.info("keySet Size : " + metaRule.getCacheDataKey().size());
@@ -254,7 +259,7 @@ public class MapperUtils {
 		ourLog.info("---- Array 구조의 병합 Row의 대한 처리를 위해 Tree를 재구성합니다. ----");
 		ourLog.info(" ㄴ 병합된 Source Data의 Row 크기 : " + source.getInt("merged_row_count"));
 		ourLog.info(" ㄴ 병합에 활용된 Key Column Name : " + metaRule.getCacheDataKey());
-		ourLog.info(" ㄴ 병합한 Column Name : " + metaRule.getMergeDataKey());
+		ourLog.info(" ㄴ 병합할 Merge Column Name : " + metaRule.getMergeDataKey());
 		ourLog.debug(" 동작 수행... : ");
 		int mergeCount = source.getInt("merged_row_count");
 		if(mergeCount <= 0){
@@ -443,15 +448,15 @@ public class MapperUtils {
 	 * @param mergeKeySet       the merge set
 	 */
 	public static String bindFunctionReferenceToArrayReference(String referenceRule, int mergedBoundNum, Set<String> mergeKeySet){
-		//ourLog.info("---- execute Reference Change... ----");
-		//ourLog.info("before referenceRule : " + referenceRule + "  mergedBoundNum : " + mergedBoundNum + " mergeKeySet : " + mergeKeySet);
+		ourLog.info("---- execute Reference Change... ----");
+		ourLog.info("before referenceRule : " + referenceRule + "  mergedBoundNum : " + mergedBoundNum + " mergeKeySet : " + mergeKeySet);
 		for(String mergeKey : mergeKeySet){
-			if(referenceRule.contains(mergeKey)){
+			if(referenceRule.contains(mergeKey) && !referenceRule.contains("_" + mergedBoundNum)){
 				referenceRule = referenceRule.replaceAll(mergeKey, mergeKey+"_"+mergedBoundNum);
 			}
 		}
-		//ourLog.info("replaced Key = : " + referenceRule);
-		//ourLog.info("--------------------------------------");
+		ourLog.info("replaced Key = : " + referenceRule);
+		ourLog.info("--------------------------------------");
 		return referenceRule;
 	}
 }

@@ -76,7 +76,8 @@ public class MetaEngine {
 						}
 					}else{
 						// ex Organization_id
-						source.put(refnode.getTargetResource()+"_id", searchedCacheResource.getResource().getIdElement());
+						ourLog.info("조회된 Cache ... " + refnode.getTargetResource() + " resource 의 " + searchedCacheResource.getResource().getIdElement().getIdPart());
+						source.put(refnode.getTargetResource()+"_id", searchedCacheResource.getResource().getIdElement().getIdPart());
 					}
 
 				}catch(Exception e){ // TODO. 광범위한 에러 체커
@@ -115,12 +116,6 @@ public class MetaEngine {
 			Map<String, String> requestConditionMap = new HashMap<>();
 			for (ReferenceParamNode node : paramNodes) {
 				requestConditionMap.put(node.getCacheTargetStr(), source.getString(node.getSourceStr()));
-			}
-
-			ourLog.debug("cache search Keys : ");
-			ourLog.debug(" > ");
-			for(String key : requestConditionMap.keySet()){
-				ourLog.debug(key  + "  :  "  + requestConditionMap.get(key));
 			}
 
 		// 3. 데이터 조회
@@ -178,7 +173,7 @@ public class MetaEngine {
 				//throw new IllegalArgumentException("[ERR] 데이터를 저장하는 과정에서 중복된 데이터가 조회되어 오류가 발생하였습니다. ");
 			}else{
 				// 3. 생성
-				ourLog.info("해당 데이터를 적재하는데에 성공하였습니다.  종류 : " + createdResource.fhirType() + " , 적재 데이터 : " + bindingKeyMap);
+				ourLog.info("해당 데이터를 적재하는데에 성공하였습니다.  종류 : " + createdResource.fhirType() + " , 적재 데이터 : " + bindingKeyMap + ", reference : " + createdReference);
 				ReferenceCache cache = new ReferenceCache();
 				cache.setResource(createdResource);
 				cache.setReference(createdReference);

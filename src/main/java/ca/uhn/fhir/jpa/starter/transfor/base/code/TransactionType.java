@@ -19,6 +19,7 @@ public enum TransactionType {
 	CREATE_SINGLESTRING("'.+?'"),
 	COPY_WITH_DEFAULT("^\\w+=NVL\\(.*\\)$"),
 	CASE("^\\w+=CASE\\(.*\\)$"),
+	TYPE("^\\w+=TYPE\\(.*\\)$"),
 	COPY_STRING(".*='([^']*)'"),
 	COPY(".*=.*"),
 	CREATE("^[^(=]*$")

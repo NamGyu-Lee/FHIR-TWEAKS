@@ -1,6 +1,8 @@
 * metadata
  * mapping
   * error_policy = exception
+  * cacheKey = inst_cd, seq_no
+  * mergeKey = -
   * referenceData
    * referenceResource
     * target = Organization
@@ -10,55 +12,48 @@
     * target = PractitionerRole
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * ord_dr_id -> ord_dr_id :: -
+    * subj_id -> subj_id :: -
    * referenceResource
     * target = Patient
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * pid -> pid :: -
+    * pat_id -> pat_id :: -
    * referenceResource
     * target = Encounter
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * pid -> pid :: -
-    * ord_dd -> ord_dd :: -
-    * ord_dept_cd -> ord_dept_cd :: -
+    * rcpt_no -> rcpt_no :: -
 -----
 * resourceType='Observation'
-* id=(KEY)MERGE('MR', '.', Organization_id, '.', prcp_dd, '.', exec_prcp_uniq_no)
-* state='final'
+* id=(KEY)MERGE('MR', '.', Organization_id, '.', seq_no)
+* status=instp_sts
+* (identifier).identifier
+ * system='http://www.hl7korea.or.kr/Identifier/hira-krnpi'
+ * value=MERGE('MR', '.', Organization_id, '.', seq_no)
 * category
- * system='http://terminology.hl7.org/CodeSystem/observation-category'
- * code=cls_cd
+ * (coding).coding
+  * system='http://terminology.hl7.org/CodeSystem/observation-category'
+  * code=insp_div
+  * display=insp_div
 * code
  * (coding).coding
   * system='http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure'
-  * value=edi_cd
- * text=test_cls_nm
+  * value=insp_cd
+ * text=insp_nm
 * subject
  * reference=MERGE('Patient/', Patient_id)
 * encounter
  * reference=MERGE('Encounter/',Encounter_id)
-* effectiveDateTime=DATE(prcp_dd, 'yyyyMMdd', 'yyyy-MM-dd')
+* effectiveDateTime=DATE(insp_dt, 'yyyyMMdd', 'yyyy-MM-dd')
 * valueQuantity
- * value=rslt_val
- * unit=rslt_unit_cd
+ * value=TYPE(insp_rslt, 'NUMBER', insp_rslt, '')
+ * unit=NVL(unit, "")
+* valueString
+ * value=TYPE(insp_rslt, 'NUMBER', '', insp_rslt)
 * (referenceRange).referenceRange
  * low
-  * value=rfvl_lwlm_val
+  * value=NVL(up_ref_val, "")
+  * unit=NVL(up_ref_unit, "")
  * high
-  * value=rfvl_uplm_val
-* component
- * code
-  * (coding).coding
-   * system
-   * value
- * value
- * valueQuantity
-  * value=rslt_val
-  * unit=rslt_unit_cd
- * (referenceRange).referenceRange
-  * low
-   * value=rfvl_lwlm_val
-  * high
-   * value=rfvl_uplm_val
+  * value=NVL(lwer_ref_val, "")
+  * unit=NVL(lwer_ref_unit, "")

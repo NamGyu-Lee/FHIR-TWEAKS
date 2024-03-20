@@ -295,3 +295,4 @@ service:
     logging: true
     ignorenoencounter: true
     referencesearch: false
+    mergeallwithnoinsertmergerule: false # 소스 기반으로 MergeRule 이 수행되는 경우를 정의한다.

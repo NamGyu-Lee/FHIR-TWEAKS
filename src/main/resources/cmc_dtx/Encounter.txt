@@ -1,8 +1,8 @@
 * metadata
  * mapping
   * error_policy = exception
-  * cacheKey = inst_cd, rcpt_no
-  * mergeKey = -
+  * cacheKey = inst_cd, pid, ord_dd, ord_dept_cd, ord_dr_id, ord_type_cd, cret_no
+  * mergeKey =
   * referenceData
    * referenceResource
     * target = Organization
@@ -12,28 +12,29 @@
     * target = PractitionerRole
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * subj_id -> subj_id :: -
+    * ord_dr_id -> ord_dr_id :: -
    * referenceResource
     * target = Patient
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * pat_id -> pat_id :: -
+    * pid -> pid :: -
 -----
 * resourceType='Encounter'
-* id=(KEY)MERGE(Organization_id, '.', rcpt_no)
+* id=(KEY)MERGE(Organization_id, '.', ord_dd, '.', ord_dept_cd, '.', ord_dr_id, '.', ord_type_cd, '.', cret_no, '.', pid)
 * meta
  * (profile).profile
+  * 'http://connectdtx.kr/fhir/StructureDefinition/connectdtx-encounter'
   * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-encounter'
 * identifier
  * system=Organization_id
- * value=MERGE(Organization_id, '.', rcpt_no)
+ * value=MERGE(Organization_id, '.', ord_dd, '.', ord_dept_cd, '.', ord_dr_id, '.', ord_type_cd, '.', cret_no, '.', pid)
 * status='finished'
 * class
  * system='http://terminology.hl7.org/CodeSystem/v3-ActCode'
- * code=CASE(prct_dvcd, 'O', 'AMB', 'I', 'IMP', 'E', 'EMER', 'D', 'AMB')
+ * code=CASE(ord_type_cd, 'O', 'AMB', 'I', 'IMP', 'E', 'EMER')
 * period
- * start=DATE(medi_bgng_ymd, 'yyyyMMdd', 'yyyy-MM-dd')
- * end=DATE(medi_end_ymd, 'yyyyMMdd', 'yyyy-MM-dd')
+ * start=DATE(ord_dd, 'yyyyMMdd', 'yyyy-MM-dd')
+ * end=DATE(dsch_dd, 'yyyyMMdd', 'yyyy-MM-dd')
 * subject
  * reference=MERGE('Patient/' ,Patient_id)
 * (participant).participant

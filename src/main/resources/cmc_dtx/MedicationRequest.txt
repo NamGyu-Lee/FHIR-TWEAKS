@@ -1,8 +1,6 @@
 * metadata
  * mapping
   * error_policy = exception
-  * cacheKey = inst_cd, seq_no
-  * mergeKey = -
   * referenceData
    * referenceResource
     * target = Organization
@@ -12,56 +10,54 @@
     * target = PractitionerRole
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * subj_id -> subj_id :: -
+    * ord_dr_id -> ord_dr_id :: -
    * referenceResource
     * target = Patient
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * pat_id -> pat_id :: -
+    * pid -> pid :: -
    * referenceResource
     * target = Encounter
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * rcpt_no -> rcpt_no :: -
-   * referenceResource
-    * target = Medication
-    * depend_policy = warning
-    * inst_cd -> inst_cd :: -
-    * drug_cd -> drug_cd :: -
+    * pid -> pid :: -
+    * ord_dd -> ord_dd :: -
+    * ord_dept_cd -> ord_dept_cd :: -
 -----
 * resourceType='MedicationRequest'
-* id=(KEY)MERGE('MR', '.', Organization_id, '.', seq_no)
+* id=(KEY)MERGE('MR', '.', Organization_id, '.', pid, '.', prcp_no)
 * meta
  * (profile).profile
+  * 'http://connectdtx.kr/fhir/StructureDefinition/connectdtx-medicationrequest'
   * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-medicationrequest'
 * identifier
  * system=Organization_id
- * value=MERGE('MR', '.', Organization_id, '.', seq_no)
-* status=rx_sts
-* intent=dmnd_sts
+ * value=MERGE('MR', '.', Organization_id, '.', pid, '.', prcp_no)
+* status='completed'
+* intent=inten_flag
 * reportedBoolean='false'
 * medicationCodeableConcept
  * (coding).coding
   * system='http://www.hl7korea.or.kr/CodeSystem/hira-edi-medication'
-  * code=rx_cd
-  * display=rx_nm
+  * code=prcp_cd
+  * display=edi_nm
 * subject
  * reference=MERGE('Patient/', Patient_id)
 * encounter
- * reference=MERGE('Encounter/', Encounter_id)
-* authoredOn=DATE(rx_dt ,'yyyyMMdd', 'yyyy-MM-dd')
+ * reference=MERGE('Encounter/',Encounter_id)
+* authoredOn=DATE(prcp_dd ,'yyyyMMdd', 'yyyy-MM-dd')
 * requester
  * reference=MERGE('PractitionerRole/',PractitionerRole_id)
 *(dosageInstruction).dosageInstruction
- * text=usge
+ * text=abbr_nm
  * timing
   * repeat
-   * frequency=once_dose_qty
-   * period=day1_medc_cnt
+   * frequency=freq_cnt
+   * period=prcp_days
    * periodUnit='d'
  * route
-  * text=usge
+  * text='unknown'
  * (doseAndRate).doseAndRate
   * doseQuantity
-   * value=medc_days_unit
-   * unit=unit
+   * value=prcp_vol
+   * unit=prcp_vol_unit_nm

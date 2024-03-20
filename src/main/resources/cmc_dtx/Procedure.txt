@@ -1,8 +1,6 @@
 * metadata
  * mapping
   * error_policy = exception
-  * cacheKey = inst_cd, seq_no
-  * mergeKey = -
   * referenceData
    * referenceResource
     * target = Organization
@@ -12,27 +10,27 @@
     * target = PractitionerRole
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * subj_id -> subj_id :: -
+    * ord_dr_id -> ord_dr_id :: -
    * referenceResource
     * target = Patient
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * pat_id -> pat_id :: -
+    * pid -> pid :: -
 -----
 * resourceType='Procedure'
-* id=(KEY)MERGE('PD', '.', Organization_id, '.', seq_no)
-* state=srg_st
+* id=(KEY)MERGE('PD', '.', Organization_id, '.', pid, '.', op_rsrv_no)
+* state='completed'
  * (profile).profile
   * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-procedure'
 * identifier
  * system=Organization_id
- * value=MERGE('PD', '.', Organization_id, '.', seq_no)
+ * value=MERGE('PD', '.', Organization_id, '.', pid, '.', op_rsrv_no)
 * code
  * (coding).coding
   * system='http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure'
-  * code=srg_cd
-  * display=srg_nm
- * text=srg_nm
-* performedDateTime=DATE(srg_dt, 'yyyyMMdd', 'yyyy-MM-dd')
+  * code=icd9n_cd
+  * display=op_nm
+ * text=op_nm
+* performedDateTime=DATE(op_dd, 'yyyyMMdd', 'yyyy-MM-dd')
 * subject
  * reference=MERGE('Patient/', Patient_id)

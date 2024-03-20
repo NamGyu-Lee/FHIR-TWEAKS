@@ -1,45 +1,52 @@
 * metadata
  * mapping
   * error_policy = exception
+  * cacheKey = inst_cd, seq_no
+  * mergeKey = -
   * referenceData
    * referenceResource
     * target = Organization
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
    * referenceResource
+    * target = PractitionerRole
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * subj_id -> subj_id :: -
+   * referenceResource
     * target = Patient
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * pid -> pid :: -
+    * pat_id -> pat_id :: -
    * referenceResource
     * target = Encounter
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-    * pid -> pid :: -
-    * ord_dd -> ord_dd :: -
-    * ord_dept_cd -> ord_dept_cd :: -
+    * rcpt_no -> rcpt_no :: -
 -----
 * resourceType='DiagnosticReport'
-* id =(KEY)MERGE('DR','.', Organization_id, '.', pacs_no)
+* id =(KEY)MERGE('DR','.', Organization_id, '.', seq_no)
 * meta
  * (profile).profile
   * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-diagnosticreport-diagnostic-imaging'
 * identifier
  * system=Organization_id
- * value=MERGE('DR','.', Organization_id, '.', pacs_no)
-* status=stat_cd
+ * value=MERGE('DR','.', Organization_id, '.', seq_no)
+* status=instp_sts
 * (category).category
  * (coding).coding
   * system='http://terminology.hl7.org/CodeSystem/v2-0074'
-  * value='IMG'
+  * value=insp_div
 * code
  * (coding).coding
   * system='http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure'
-  * code=edi_cd
-  * display=test_nm
- * text=test_nm
+  * code=insp_cd
+  * display=insp_nm
+ * text=insp_txt
 * subject
  * reference=MERGE('Patient/', Patient_id)
 * encounter
  * reference=MERGE('Encounter/',Encounter_id)
-* effectiveDateTime=DATE(test_dt, 'yyyyMMddhhmmss', 'yyyy-MM-dd hh:mm:ss')
+* effectiveDateTime=DATE(test_dt, 'yyyyMMdd', 'yyyy-MM-dd')
+* conclusion=insp_rslt
+* issued=DATE(insp_dt, 'yyyyMMdd', 'yyyy-MM-dd')

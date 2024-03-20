@@ -112,57 +112,58 @@ public class TransformUtil {
 	 * @param mergeKeySet     병합할 키 셋. 존재하지 않으면 키 외 전체를 boundKeySet으로 본다.
 	 * @param jsonElementList 대상(반드시 동일한 Json element 의 연속으로 본다)
 	 */
-	public static List<JsonObject> mergeJsonObjectPattern(Set<String> keySet, Set<String> mergeKeySet, List<JsonElement> jsonElementList) {
+	public static List<JsonObject> mergeJsonObjectPattern(Set<String> keySet, Set<String> mergeKeySet, List<JsonElement> jsonElementList, boolean isTransforMergeAllWithNoInsertMergeRule) {
 		Map<String, JsonObject> mergedMap = new HashMap<>();
 
 		// Bound Key Set 이 존재하지 않으면 키를 제외한 모든 값이 바인드 키 셋으로 정의한다.
-		if (mergeKeySet == null || mergeKeySet.size() <= 0) {
-			Set<String> allKeyObjects = jsonElementList.get(0).getAsJsonObject().keySet();
-			for (String arg : allKeyObjects){
-				String argNoSeparateText = arg.replaceAll("_[0-9]", "");
-				if (!keySet.contains(argNoSeparateText)) {
-					mergeKeySet.add(argNoSeparateText);
+		if(isTransforMergeAllWithNoInsertMergeRule){
+			if (mergeKeySet == null || mergeKeySet.size() <= 0) {
+				Set<String> allKeyObjects = jsonElementList.get(0).getAsJsonObject().keySet();
+				for (String arg : allKeyObjects){
+					String argNoSeparateText = arg.replaceAll("_[0-9]", "");
+					if (!keySet.contains(argNoSeparateText)) {
+						mergeKeySet.add(argNoSeparateText);
+					}
 				}
 			}
 		}
 
-		Map<String, Integer> arraySizeMap = new HashMap<>();
+		Map<String, Integer> mergeSizeMap = new HashMap<>();
 		for (JsonElement element : jsonElementList){
 			JsonObject jsonObj = element.getAsJsonObject();
-			String keyValue = "";
+			String keyBundleValue = "";
 			for (String key : keySet) {
-				keyValue = keyValue + "|" + jsonObj.get(key);
+				keyBundleValue = keyBundleValue + "|" + jsonObj.get(key);
 			}
 
 			// 인덱싱 탐색
-			boolean isAlreadyHas = mergedMap.containsKey(keyValue);
+			boolean isAlreadyHas = mergedMap.containsKey(keyBundleValue);
 			if (isAlreadyHas){
 				// 존재하면 병합
-				JsonObject befObject = mergedMap.get(keyValue);
-				int arrangeSize = arraySizeMap.get(keyValue);
-				if(arrangeSize == 1){
+				JsonObject befObject = mergedMap.get(keyBundleValue);
+				int mergeSize = mergeSizeMap.get(keyBundleValue);
+				if(mergeSize == 1){
 					// 첫번째 중첩 시 첫번째 행의 데이터도 _N 값 추가
-					JsonObject obj = exchangeMergeDataPivotJsonObject(mergeKeySet, arrangeSize, befObject);
+					JsonObject obj = exchangeMergeDataPivotJsonObject(mergeKeySet, mergeSize, befObject);
 					mergeJsonObjects(befObject, obj);
 					// 1행 추가에 따른 _N 이 없는 행 소거
 					for(String key : mergeKeySet){
 						befObject.remove(key);
 					}
 				}
-				mergeJsonObjects(befObject, exchangeMergeDataPivotJsonObject(mergeKeySet, arrangeSize + 1, jsonObj));
-				befObject.addProperty("merged_row_count", arrangeSize);
-				mergedMap.put(keyValue, befObject);
-				arraySizeMap.put(keyValue, arrangeSize + 1);
+
+				mergeJsonObjects(befObject, exchangeMergeDataPivotJsonObject(mergeKeySet, mergeSize + 1, jsonObj));
+				befObject.addProperty("merged_row_count", mergeSize + 1);
+				mergedMap.put(keyBundleValue, befObject);
+				mergeSizeMap.put(keyBundleValue, mergeSize + 1);
 			} else {
 				// 비존재 시
 				jsonObj.addProperty("merged_row_count", 0);
-				mergedMap.put(keyValue, jsonObj);
-				arraySizeMap.put(keyValue, 1);
+				mergedMap.put(keyBundleValue, jsonObj);
+				mergeSizeMap.put(keyBundleValue, 1);
 			}
 		}
-
 		List<JsonObject> valuesList = mergedMap.values().stream().collect(Collectors.toList());
-
 		return valuesList;
 	}
 
@@ -343,6 +344,9 @@ public class TransformUtil {
 			SimpleDateFormat outputFormat = new SimpleDateFormat(targetDateType);
 			return outputFormat.format(date);
 		}catch(java.text.ParseException e){
+			ourLog.error("잘못 입력된 날짜 포맷 : " + sourceDateType);
+			ourLog.error("잘못 입력된 날짜 값 : " + sourceDate);
+			ourLog.error("잘못 입력된 날짜 목표 포맷 : " + targetDateType);
 			throw new IllegalArgumentException("잘못된 날짜 구조를 가지고 있어 오류가 발생하였습니다.");
 		}
 	}

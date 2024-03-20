@@ -136,7 +136,7 @@ public class SampleMappingTest {
 		elementList.add(element);
 
 		// 병합
-		List<JsonObject> obj = TransformUtil.mergeJsonObjectPattern(indexKeySet, mergeKeySet, elementList);
+		List<JsonObject> obj = TransformUtil.mergeJsonObjectPattern(indexKeySet, mergeKeySet, elementList, false);
 
 		// JsonObject -> JSONObject
 		String v = obj.get(0).toString();
@@ -185,7 +185,7 @@ public class SampleMappingTest {
 		elementList.add(element);
 
 		// 병합
-		List<JsonObject> obj = TransformUtil.mergeJsonObjectPattern(indexKeySet, mergeKeySet, elementList);
+		List<JsonObject> obj = TransformUtil.mergeJsonObjectPattern(indexKeySet, mergeKeySet, elementList, false);
 
 		// 엔진 스타트
 		CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties = new CustomValidationRemoteConfigProperties();
@@ -257,7 +257,7 @@ public class SampleMappingTest {
 		elementList.add(element);
 
 		// 병합
-		List<JsonObject> obj = TransformUtil.mergeJsonObjectPattern(indexKeySet, mergeKeySet, elementList);
+		List<JsonObject> obj = TransformUtil.mergeJsonObjectPattern(indexKeySet, mergeKeySet, elementList, false);
 
 		// 엔진 스타트
 		CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties = new CustomValidationRemoteConfigProperties();
@@ -296,7 +296,6 @@ public class SampleMappingTest {
 			System.out.println("-------END------------------------------");
 		}
 	}
-
 
 	String argMap2 =
 	"* resourceType='Test'\n" +

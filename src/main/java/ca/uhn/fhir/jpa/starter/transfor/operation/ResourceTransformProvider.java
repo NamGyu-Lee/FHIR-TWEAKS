@@ -23,6 +23,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.commons.io.IOUtils;
+import org.apache.jena.base.Sys;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
@@ -99,24 +100,30 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 			JsonElement jsonElement = jsonParser.parse(bodyData);
 			JsonObject jsonObject = jsonElement.getAsJsonObject();
 
-			// 1. sorting
+			// 1. Sorting
 			Queue<Map.Entry<String, JsonElement>> sortedQueue = transformUtil.sortingCreateResourceArgument(jsonObject);
 
 			// 2. 데이터 생성
 			Bundle bundle = new Bundle();
+			int createResourceCount = 0;
 			while(sortedQueue.size() != 0){
 				Map.Entry<String, JsonElement> entry = sortedQueue.poll();
-				List<IBaseResource> baseResourceList = this.createResource(entry);
-				for(IBaseResource resource : baseResourceList){
-					Bundle.BundleEntryComponent comp = new Bundle.BundleEntryComponent();
-					comp.setResource((Resource)resource);
-					bundle.addEntry(comp);
+				if(entry.getValue().getAsJsonArray().size() <= 0) {
+					ourLog.info(" -- 대상자의 " + entry.getKey() + " 데이터가 존재하지 않아 생략됩니다.");
+				}else{
+					List<IBaseResource> baseResourceList = this.createResource(entry);
+					createResourceCount = createResourceCount + baseResourceList.size();
+					for (IBaseResource resource : baseResourceList) {
+						Bundle.BundleEntryComponent comp = new Bundle.BundleEntryComponent();
+						comp.setResource((Resource) resource);
+						bundle.addEntry(comp);
+					}
 				}
 			}
 
 			// 3. 결과 리턴
 			String retBundle = fn.newJsonParser().encodeResourceToString(bundle);
-			ResponseDto<String> responseDto = ResponseDto.<String>builder().success(ResponseStateCode.OK.getSuccess()).stateCode(ResponseStateCode.OK.getStateCode()).errorReason("-").body(retBundle).build();
+			ResponseDto<String> responseDto = ResponseDto.<String>builder().success(ResponseStateCode.OK.getSuccess()).stateCode(ResponseStateCode.OK.getStateCode()).errorReason("-").body(retBundle).createCount(createResourceCount).build();
 			ObjectMapper mapper = new ObjectMapper();
 			String jsonStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseDto);
 
@@ -124,7 +131,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 
 		}catch(Exception e) {
 			e.printStackTrace();
-			ResponseDto<String> responseDto = ResponseDto.<String>builder().success(ResponseStateCode.BAD_REQUEST.getSuccess()).stateCode(ResponseStateCode.BAD_REQUEST.getStateCode()).errorReason("-").body("-").build();
+			ResponseDto<String> responseDto = ResponseDto.<String>builder().success(ResponseStateCode.BAD_REQUEST.getSuccess()).stateCode(ResponseStateCode.BAD_REQUEST.getStateCode()).errorReason("-").body("-").createCount(0).build();
 			ObjectMapper mapper = new ObjectMapper();
 			String jsonStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseDto);
 			retMessage = jsonStr;
@@ -175,7 +182,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 		}
 
 		// 2.3.2. Source 의 Merge 수행
-		List<JsonObject> sourceDataJsonList = TransformUtil.mergeJsonObjectPattern(keySet, mergeDataKeySet, jsonElementList);
+		List<JsonObject> sourceDataJsonList = TransformUtil.mergeJsonObjectPattern(keySet, mergeDataKeySet, jsonElementList, transformDataOperationConfigProperties.isTransforMergeAllWithNoInsertMergeRule());
 
 		// 2.4. 데이터 조회
 		for(JsonObject eachRowJsonObj : sourceDataJsonList){
