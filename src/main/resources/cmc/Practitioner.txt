@@ -1,0 +1,31 @@
+* metadata
+ * mapping
+  * error_policy = exception
+  * cacheKey = inst_cd, dr_id
+  * mergeKey = -
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+-----
+* resourceType='Practitioner'
+* id=(KEY)MERGE(inst_cd, '.', dr_id)
+* meta
+ * (profile).profile
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-medical-doctor'
+* identifier
+ * system=Organization_id
+ * value=dr_id
+* active='true'
+* (name).name
+ * text=dr_flnm
+* (qualification).qualification
+ * identifier
+  * system='http://www.hl7korea.or.kr/Identifier/mohw-md-license-id'
+  * value=dr_lic_no
+ * code
+  * (coding).coding
+   * system='http://www.hl7korea.or.kr/CodeSystem/mohw-practitioner-qualification-types'
+   * code=subj_cd
+   * text=subj_desc

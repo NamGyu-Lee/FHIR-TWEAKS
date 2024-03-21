@@ -43,7 +43,7 @@
 * code
  * (coding).coding
   * system='http://www.hl7korea.or.kr/CodeSystem/kostat-kcd-8'
-  * code=diag_cd_div
+  * code=diag_cd
   * display=diag_nm
 * subject
  * reference=MERGE('Patient/', Patient_id)

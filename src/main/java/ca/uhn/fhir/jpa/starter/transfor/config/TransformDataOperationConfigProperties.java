@@ -36,6 +36,25 @@ public class TransformDataOperationConfigProperties {
 	@Value("${service.transfor.mergeallwithnoinsertmergerule}")
 	private boolean transforMergeAllWithNoInsertMergeRule;
 
+	@Value("${service.transfor.cache.useyn}")
+	private boolean transformCacheEnabled;
+
+	@Value("${service.transfor.performance.thread.enabled}")
+	private boolean threadEnabled;
+
+	@Value("${service.transfor.performance.thread.count}")
+	private int threadPoolSize;
+
+	// local(각 요청별 독립적인 cache Poll 활용), global(서버 내 모든 리퀘스트에 같은 cache Poll 활용), external(외부 cache 정보 활용)
+	@Value("${service.transfor.cache.type}")
+	private String transformCacheType;
+
+	@Value("${service.transfor.debug.performance.trackingtime}")
+	private boolean debugPerformanceTrackingTimeEach;
+
+	@Value("${service.transfor.debug.performance.printstacktime}")
+	private boolean debugPerformancePrintOperationTimeStack;
+
 	// 해당 순서대로 변환하는 source 데이터의 가장 뒤쪽에 배치된다.
 	private Set<String> resourceLowerSortingReferenceSet;
 
@@ -57,8 +76,9 @@ public class TransformDataOperationConfigProperties {
 		resourceUpperSortingReferenceSet.add("condition");
 		resourceUpperSortingReferenceSet.add("medicationrequest");
 		resourceLowerSortingReferenceSet.add("procedure");
-		resourceLowerSortingReferenceSet.add("imagestudy");
 		resourceUpperSortingReferenceSet.add("servicerequest");
+		resourceLowerSortingReferenceSet.add("observation");
+		resourceLowerSortingReferenceSet.add("diagnosticreport");
 	}
 
 	public boolean isTransforEnabled() {
@@ -87,5 +107,25 @@ public class TransformDataOperationConfigProperties {
 
 	public boolean isSearchReferenceinRepoEnabled() {
 		return searchReferenceinRepoEnabled;
+	}
+
+	public boolean isTransformCacheEnabled() {	return transformCacheEnabled; }
+
+	public String getTransformCacheType() {	return transformCacheType; }
+
+	public boolean isThreadEnabled() {
+		return threadEnabled;
+	}
+
+	public int getThreadPoolSize() {
+		return threadPoolSize;
+	}
+
+	public boolean isDebugPerformanceTrackingTimeEach() {
+		return debugPerformanceTrackingTimeEach;
+	}
+
+	public boolean isDebugPerformancePrintOperationTimeStack() {
+		return debugPerformancePrintOperationTimeStack;
 	}
 }

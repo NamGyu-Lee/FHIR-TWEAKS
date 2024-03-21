@@ -25,11 +25,19 @@ public class CustomValidationRemoteConfigProperties {
 	@Value("${service.validation.remote.server.url}")
 	private String remoteURL;
 
+	@Value("${service.validation.enabled}")
+	private boolean validationYn;
+
+	@Value("${service.validation.remote.logginglevel}")
+	private String remoteValidationLoggingLevel;
+
 	public boolean isLocalTerminologyYn() {return localTerminologyYn;}
 
 	public boolean isRemoteTerminologyYn() {
 		return remoteTerminologyYn;
 	}
+
+	public boolean isValidationYn() {return validationYn;}
 
 	public String getRemoteURL() {
 		return remoteURL;
@@ -37,6 +45,9 @@ public class CustomValidationRemoteConfigProperties {
 
 	public String getLocalURL() {	return localURL; }
 
+	public String getRemoteValidationLoggingLevel() {
+		return remoteValidationLoggingLevel;
+	}
 
 	/**
 	 * TEST ONLY

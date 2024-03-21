@@ -1,0 +1,27 @@
+* metadata
+ * mapping
+  * error_policy = exception
+  * cacheKey = inst_cd
+  * mergeKey = teltype, telno
+-----
+* resourceType='Organization'
+* id=(KEY)cisn
+* meta
+ * (profile).profile
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-healthcare-organization'
+* identifier
+ * system='http://www.hl7korea.or.kr/Identifier/hira-krnpi'
+ * value=cisn
+* type
+  * (coding).coding
+   * system='http://www.hl7korea.or.kr/CodeSystem/hira-healthcare-organization-types'
+   * code=hpcf_dvcd
+   * display=hpcf_dvnm
+* active='true'
+* name=care_inst_nm
+* (telecom).telecom
+ * system=NVL(teltype, 'phone')
+ * value=telno
+* (address).address
+ * text=addr
+ * postalCode=zip

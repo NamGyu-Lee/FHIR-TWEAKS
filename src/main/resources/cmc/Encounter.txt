@@ -35,7 +35,7 @@
  * start=DATE(medi_bgng_ymd, 'yyyyMMdd', 'yyyy-MM-dd')
  * end=DATE(medi_end_ymd, 'yyyyMMdd', 'yyyy-MM-dd')
 * subject
- * reference=MERGE('Patient/' ,Patient_id)
+ * reference=MERGE('Patient/', Patient_id)
 * (participant).participant
  * individual
   * reference=MERGE('PractitionerRole/' ,PractitionerRole_id)

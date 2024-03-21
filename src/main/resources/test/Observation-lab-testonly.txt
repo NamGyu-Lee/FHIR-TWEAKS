@@ -1,7 +1,7 @@
 * metadata
  * mapping
   * cacheKey = inst_cd, bc_no, exec_prcp_uniq_no
-  * mergeKey = ctgy_cd, rslt_unit_cd, rslt_val, edi_cd
+  * mergeKey = ctgy_cd || rslt_unit_cd || rslt_val || edi_cd
   * error_policy = exception
 -----
 * resourceType='Observation'

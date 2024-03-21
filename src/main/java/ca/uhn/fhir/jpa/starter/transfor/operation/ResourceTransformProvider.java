@@ -7,6 +7,7 @@ import ca.uhn.fhir.jpa.starter.transfor.base.code.RuleType;
 import ca.uhn.fhir.jpa.starter.transfor.base.code.TransactionType;
 import ca.uhn.fhir.jpa.starter.transfor.base.core.MetaEngine;
 import ca.uhn.fhir.jpa.starter.transfor.base.core.TransformEngine;
+import ca.uhn.fhir.jpa.starter.transfor.base.core.ValidationEngine;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.MetaRule;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.RuleNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.reference.structure.ReferenceCacheHandler;
@@ -14,7 +15,9 @@ import ca.uhn.fhir.jpa.starter.transfor.base.util.MapperUtils;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
 import ca.uhn.fhir.jpa.starter.transfor.dto.comm.ResponseDto;
 import ca.uhn.fhir.jpa.starter.transfor.operation.code.ResponseStateCode;
+import ca.uhn.fhir.jpa.starter.transfor.service.ResourceTransformTask;
 import ca.uhn.fhir.jpa.starter.transfor.util.TransformUtil;
+import ca.uhn.fhir.jpa.starter.util.PerformanceChecker;
 import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationRemoteConfigProperties;
 import ca.uhn.fhir.rest.annotation.Operation;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,6 +41,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  *  2023. 12. 15. Resource의 Transform
@@ -52,6 +59,8 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 	private TransformEngine transformEngine;
 
 	private MetaEngine metaEngine;
+
+	private ValidationEngine validationEngine;
 
 	private TransformUtil transformUtil;
 
@@ -70,6 +79,9 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 		metaEngine = new MetaEngine(fn, transformDataOperationConfigProperties, referenceCacheHandler);
 	}
 
+	// dev. 동작시간 측정용으로 함수를 구성한다.
+	PerformanceChecker timer;
+
 	private CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties;
 
 	@Autowired
@@ -77,6 +89,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 	void setCustomValidationRemoteConfigProperties(CustomValidationRemoteConfigProperties customValidationRemoteConfigProperties){
 		this.customValidationRemoteConfigProperties = customValidationRemoteConfigProperties;
 		transformEngine = new TransformEngine(this.getContext(), customValidationRemoteConfigProperties);
+		validationEngine = new ValidationEngine(this.getContext(), customValidationRemoteConfigProperties);
 	}
 
 	public ResourceTransformProvider(FhirContext fn){
@@ -91,8 +104,8 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 	)
 	public void transforResourceStandardService(HttpServletRequest theServletRequest, HttpServletResponse theResponse) throws IOException {
 		String retMessage = "-";
-		ourLog.info(" > Create Engine, Reference Engine Based Data Transfor initalized.. ");
-
+		// debuging
+		timer = new PerformanceChecker(transformDataOperationConfigProperties.isDebugPerformanceTrackingTimeEach(), transformDataOperationConfigProperties.isDebugPerformancePrintOperationTimeStack());
 		try{
 			byte[] bytes = IOUtils.toByteArray(theServletRequest.getInputStream());
 			String bodyData = new String(bytes);
@@ -111,9 +124,21 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 				if(entry.getValue().getAsJsonArray().size() <= 0) {
 					ourLog.info(" -- 대상자의 " + entry.getKey() + " 데이터가 존재하지 않아 생략됩니다.");
 				}else{
-					List<IBaseResource> baseResourceList = this.createResource(entry);
+					List<IBaseResource> baseResourceList;
+					if(transformDataOperationConfigProperties.isThreadEnabled()){
+						baseResourceList = this.createResourceMultiThread(entry);
+					}else{
+						baseResourceList = this.createResourceSingleThread(entry);
+					}
+
 					createResourceCount = createResourceCount + baseResourceList.size();
 					for (IBaseResource resource : baseResourceList) {
+						if(customValidationRemoteConfigProperties.isValidationYn()){
+							boolean isSuccessValidation = validationEngine.executeValidation(resource, false);
+							if(isSuccessValidation){
+								// validation 예외처리.
+							}
+						}
 						Bundle.BundleEntryComponent comp = new Bundle.BundleEntryComponent();
 						comp.setResource((Resource) resource);
 						bundle.addEntry(comp);
@@ -128,7 +153,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 			String jsonStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseDto);
 
 			retMessage = jsonStr;
-
+			timer.printAllTimeStack();
 		}catch(Exception e) {
 			e.printStackTrace();
 			ResponseDto<String> responseDto = ResponseDto.<String>builder().success(ResponseStateCode.BAD_REQUEST.getSuccess()).stateCode(ResponseStateCode.BAD_REQUEST.getStateCode()).errorReason("-").body("-").createCount(0).build();
@@ -143,7 +168,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 		}
 	}
 
-	private List<IBaseResource> createResource(Map.Entry<String, JsonElement> entry){
+	private List<IBaseResource> createResourceMultiThread(Map.Entry<String, JsonElement> entry) throws Exception{
 		List<IBaseResource> retResourceList = new ArrayList<>();
 		JsonElement elements = entry.getValue();
 		JsonArray jsonArray = elements.getAsJsonArray();
@@ -151,6 +176,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 		// 1. 리소스 병합 수행
 		// 리소스 생성별 맵 구성
 		// Resource : MapType 을 1:1로 고정
+		timer.startTimer();
 		JsonObject searchFirstSourceData = jsonArray.get(0).getAsJsonObject();
 		String mapScript = "";
 		String mapType = "";
@@ -169,8 +195,11 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 			ourLog.error(searchFirstSourceData.toString());
 			throw new IllegalArgumentException("[ERR] Source 데이터의 맵을 조회하는 시점에서 JSONException 오류가 발생하였습니다.");
 		}
+		timer.endTimer("1. 맵 조회");
 
 		// 2.1. metaRule 구성
+		timer.startTimer();
+
 		MetaRule metaRule = metaEngine.getMetaData(mapScript);
 		Set<String> keySet = metaRule.getCacheDataKey();
 		Set<String> mergeDataKeySet = metaRule.getMergeDataKey();
@@ -180,54 +209,88 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 		for(int eachRowCount = 0; jsonArray.size() > eachRowCount; eachRowCount++){
 			jsonElementList.add(jsonArray.get(eachRowCount));
 		}
+		timer.endTimer("2. META 구성");
 
 		// 2.3.2. Source 의 Merge 수행
+		timer.startTimer();
 		List<JsonObject> sourceDataJsonList = TransformUtil.mergeJsonObjectPattern(keySet, mergeDataKeySet, jsonElementList, transformDataOperationConfigProperties.isTransforMergeAllWithNoInsertMergeRule());
+		timer.endTimer("3. MERGE 구성");
 
-		// 2.4. 데이터 조회
+		// 2.4. 데이터 생성
+		// 2024. 03. 21. test. thread 처리
+		ExecutorService executor = Executors.newFixedThreadPool(transformDataOperationConfigProperties.getThreadPoolSize());
+		List<Future<IBaseResource>> futures = new ArrayList<>();
+
 		for(JsonObject eachRowJsonObj : sourceDataJsonList){
+			ResourceTransformTask task = new ResourceTransformTask(mapScript, mapType, eachRowJsonObj, metaRule, transformEngine, metaEngine, timer);
+			Future<IBaseResource> resourceFuture = executor.submit(task);
+			futures.add(resourceFuture);
+		}
+
+		for(Future<IBaseResource> future : futures){
 			try {
-				// 각 오브젝트별 동작 수행 시작
-				JSONObject sourceObject = new JSONObject(eachRowJsonObj.toString());
-				try {
-					 // 4.1. 매 회별 맵 구성
-					List<RuleNode> ruleNodeList = transformEngine.createRuleNodeTree(mapScript);
-					if(mapScript == "" || mapScript == null || mapType == "" || mapType == null){
-						throw new IllegalArgumentException("[ERR] Map이 조회되지 않았습니다.");
-					}
-
-					// 병합 활용 맵 재생성
-					for(int j = 0; ruleNodeList.size() > j; j++){
-						ruleNodeList.set(j, MapperUtils.createTreeForArrayWithRecursive(metaRule, ruleNodeList.get(j), sourceObject));
-					}
-
-					// 캐시값 조회 후 추가
-					metaEngine.setReference(metaRule, sourceObject);
-
-					// 2.4.1. FHIR 데이터 생성
-					IBaseResource resource = transformEngine.transformDataToResource(ruleNodeList, sourceObject);
-
-					// 2.4.2. 로깅
-					loggingInDebugMode(" > [DEV] Created THis Resource : " + this.getContext().newJsonParser().encodeResourceToString(resource));
-					retResourceList.add(resource);
-
-					// 2.4.3. 캐시 처리
-					if(metaRule.getCacheDataKey().size() != 0){
-						metaEngine.putCacheResource(metaRule, sourceObject, resource, null);
-					}
-				}catch(Exception e){
-					e.printStackTrace();
-					if(metaRule.getErrorHandleType().equals(ErrorHandleType.EXCEPTION)){
-						throw new IllegalArgumentException("[ERR] 데이터 형변환 과정에서 오류가 발생하였습니다.");
-					}else if(metaRule.getErrorHandleType().equals(ErrorHandleType.WARNING)){
-						ourLog.warn("[WARN] 데이터 형변환 과정에서 오류가 발생하였습니다. " + e.getMessage());
-					}else{
-						loggingInDebugMode("[INFO] 데이터 형변환 과정에서 오류가 발생하였습니다. " + e.getMessage());
-					}
-				}
-			}catch (JSONException e){
-				e.printStackTrace();
+				// wait callback
+				retResourceList.add(future.get());
+			}catch(ExecutionException | InterruptedException e){
+				throw new IllegalArgumentException("[ERR] Threading 처리과정에서 오류가 발생하였습니다.");
 			}
+		}
+		executor.shutdown();
+		return retResourceList;
+	}
+
+	private List<IBaseResource> createResourceSingleThread(Map.Entry<String, JsonElement> entry){
+		List<IBaseResource> retResourceList = new ArrayList<>();
+		JsonElement elements = entry.getValue();
+		JsonArray jsonArray = elements.getAsJsonArray();
+
+		// 1. 리소스 병합 수행
+		// 리소스 생성별 맵 구성
+		// Resource : MapType 을 1:1로 고정
+		timer.startTimer();
+		JsonObject searchFirstSourceData = jsonArray.get(0).getAsJsonObject();
+		String mapScript = "";
+		String mapType = "";
+		try {
+			JSONObject sourceObject = new JSONObject(searchFirstSourceData.toString());
+			mapType = sourceObject.getString("map_type");
+			if(mapType.isEmpty() || mapType.isBlank()){
+				ourLog.error("[ERR] 해당 리소스에 MapType이 없습니다.");
+				throw new IllegalArgumentException("[ERR] 해당 리소스에 MapType이 없습니다.");
+			}else{
+				mapScript = TransformUtil.getMap(mapType);
+			}
+
+		}catch(JSONException e){
+			ourLog.error("다음과같은 source JSON이 오류를 발생시켰습니다.");
+			ourLog.error(searchFirstSourceData.toString());
+			throw new IllegalArgumentException("[ERR] Source 데이터의 맵을 조회하는 시점에서 JSONException 오류가 발생하였습니다.");
+		}
+		timer.endTimer("1. 맵 조회");
+
+		// 2.1. metaRule 구성
+		timer.startTimer();
+
+		MetaRule metaRule = metaEngine.getMetaData(mapScript);
+		Set<String> keySet = metaRule.getCacheDataKey();
+		Set<String> mergeDataKeySet = metaRule.getMergeDataKey();
+
+		// 2.2. metaRule 기반의 Source 데이터 Merge 준비
+		List<JsonElement> jsonElementList = new ArrayList<>();
+		for(int eachRowCount = 0; jsonArray.size() > eachRowCount; eachRowCount++){
+			jsonElementList.add(jsonArray.get(eachRowCount));
+		}
+		timer.endTimer("2. META 구성");
+
+		// 2.3.2. Source 의 Merge 수행
+		timer.startTimer();
+		List<JsonObject> sourceDataJsonList = TransformUtil.mergeJsonObjectPattern(keySet, mergeDataKeySet, jsonElementList, transformDataOperationConfigProperties.isTransforMergeAllWithNoInsertMergeRule());
+		timer.endTimer("3. MERGE 구성");
+
+		// 2.4. 데이터 생성
+		for(JsonObject eachRowJsonObj : sourceDataJsonList){
+			ResourceTransformTask task = new ResourceTransformTask(mapScript, mapType, eachRowJsonObj, metaRule, transformEngine, metaEngine, timer);
+			retResourceList.add(task.transformResourceEach());
 		}
 		return retResourceList;
 	}

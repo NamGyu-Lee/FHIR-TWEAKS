@@ -275,7 +275,6 @@ public class TransformUtil {
 	 * @return the string
 	 */
 	public static String getMap(String mapType){
-
 		ourLog.info("---- 해당 리소스에 적합한 변환 맵을 호출합니다. ----");
 		ourLog.info("호출 할 변환 맵 : " + mapType);
 		LinkedList<String> linkedList = splitByDot(mapType);

@@ -56,6 +56,10 @@ public class MetaEngine {
 				ErrorHandleType referenceErrorPolicyType = refnode.getErrorHandleType();
 				try {
 					// 1. 캐시에서 조회
+					if(!transformDataOperationConfigProperties.isTransformCacheEnabled()){
+						ourLog.info("해당 서버 설정상 Cache 를 활용하지 않는 상태입니다.");
+						return;
+					}
 					ReferenceCache searchedCacheResource = this.findCachedResourceFromReferenceNode(refnode, source);
 					if(searchedCacheResource == null){
 						if(transformDataOperationConfigProperties.isSearchReferenceinRepoEnabled()){
@@ -125,9 +129,7 @@ public class MetaEngine {
 			throw new IllegalArgumentException("[ERR] 캐시에서 데이터를 가져오려고 조회셋을 만드는 과정에서 오류가 발생하였습니다. " + e.getMessage() );
 		}
 	}
-
-	// TODO. 추후 데이터 미적재(바로 변경 후 반환) 외 데이터 적재 구조 시 Reference의 대하여 Repo 에서 가져올 수 있도록 작업해주기
-	public ReferenceCache findResourceInRepo(ReferenceNode referenceNode, JSONObject source) throws IllegalArgumentException{
+   public ReferenceCache findResourceInRepo(ReferenceNode referenceNode, JSONObject source) throws IllegalArgumentException{
 		// 1. reference 에 데이터 읽기
 		List<ReferenceParamNode> paramNodes = referenceNode.getReferenceParamNodeList();
 		try{
@@ -153,8 +155,11 @@ public class MetaEngine {
 
 	public boolean putCacheResource(MetaRule metaRule, JSONObject source, @Nullable IBaseResource createdResource, @Nullable Reference createdReference) throws IllegalArgumentException{
 		try {
-
 			ourLog.info("---- Meta정보중 Cache Resource 를 적재합니다. ----");
+			if(!transformDataOperationConfigProperties.isTransformCacheEnabled()){
+				ourLog.info("해당 서버 설정상 Cache 를 활용하지 않는 상태입니다.");
+				return true;
+			}
 			ourLog.debug("현재 적재된 크기 : " + metaRule.getCacheDataKey().size());
 
 			// 1. Cache를 위한 고유 키 식별자 조회 및 정의

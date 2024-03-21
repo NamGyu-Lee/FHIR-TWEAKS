@@ -285,10 +285,18 @@ service:
     local:
       enabled: false
     remote:
+      logginglevel : warn
       server:
         enabled: true
         url: http://fhrdev.cmcnu.or.kr/fhir
   transfor:
+    performance:
+      thread:
+        enabled : true
+        count: 8
+    cache:
+      useyn: true
+      type: global # local(각 요청별 독립적인 cache Poll 활용), global(서버 내 모든 리퀘스트에 같은 cache Poll 활용), external(외부 cache 정보 활용)
     enabled: true
     type: engine+ref
     target: cmc
@@ -296,3 +304,7 @@ service:
     ignorenoencounter: true
     referencesearch: false
     mergeallwithnoinsertmergerule: false # 소스 기반으로 MergeRule 이 수행되는 경우를 정의한다.
+    debug:
+      performance:
+        trackingtime: true #매 동작별 소요시간을 콘솔에 반환한다.
+        printstacktime: true # 동작이 종료된 뒤 최종 결과 값을 콘솔에 반환한다.
