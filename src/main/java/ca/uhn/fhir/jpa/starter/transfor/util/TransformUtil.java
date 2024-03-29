@@ -1,28 +1,21 @@
 package ca.uhn.fhir.jpa.starter.transfor.util;
 
-import ca.uhn.fhir.jpa.starter.transfor.base.util.MapperUtils;
 import ca.uhn.fhir.jpa.starter.transfor.code.ResourceNameSummaryCode;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.springframework.core.io.ClassPathResource;
 
-import javax.json.Json;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /** 2023. 11. 27.
  * Transform 과정에서 Engine  기반, Client 기반 모두 활용 가능한 편의성 함수들의 대하여
@@ -274,10 +267,14 @@ public class TransformUtil {
 	 * @param mapType the map type
 	 * @return the string
 	 */
-	public static String getMap(String mapType){
+	public static String getMap(String mapType, String defaultLocation){
 		ourLog.info("---- 해당 리소스에 적합한 변환 맵을 호출합니다. ----");
 		ourLog.info("호출 할 변환 맵 : " + mapType);
 		LinkedList<String> linkedList = splitByDot(mapType);
+		String directorySeparator = System.getProperty("file.separator");
+		if(directorySeparator.equals("\\")){
+			directorySeparator = directorySeparator + "\\"; // \ -> \\ 윈도우 특성상.
+		}
 
 		String location = "";
 		Iterator<String> iterator = linkedList.iterator();
@@ -286,13 +283,15 @@ public class TransformUtil {
 				// 폴더는 항상 소문자.
 				location = iterator.next().toLowerCase();
 			}else{
-				location = location +"/"+ iterator.next();
+				location = location + directorySeparator + iterator.next();
 			}
 		}
-		location = location + ".txt";
-
+		location = defaultLocation + directorySeparator + location + ".txt";
+		ourLog.info("맵 경로 : " + location);
 		try {
-			InputStream inputStream = new ClassPathResource(location).getInputStream();
+			InputStream inputStream = new FileInputStream(location);
+			// 2024. 03. 22. 패키지내에서 Map을 가져와서 활용하려는 경우 사용.
+			//InputStream inputStream = new ClassPathResource(location).getInputStream();
 			File file = File.createTempFile("maptempfile", ".dat");
 			FileUtils.copyInputStreamToFile(inputStream, file);
 

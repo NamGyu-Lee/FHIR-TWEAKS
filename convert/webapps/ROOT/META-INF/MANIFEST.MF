@@ -1,0 +1,13 @@
+Manifest-Version: 1.0
+Created-By: Maven WAR Plugin 3.3.2
+Build-Jdk-Spec: 17
+Implementation-Title: mhw_mig_api
+Implementation-Version: 1.0.0
+Main-Class: org.springframework.boot.loader.WarLauncher
+Start-Class: com.phis.mhw.mig_api.AppMain
+Spring-Boot-Version: 2.7.12
+Spring-Boot-Classes: WEB-INF/classes/
+Spring-Boot-Lib: WEB-INF/lib/
+Spring-Boot-Classpath-Index: WEB-INF/classpath.idx
+Spring-Boot-Layers-Index: WEB-INF/layers.idx
+

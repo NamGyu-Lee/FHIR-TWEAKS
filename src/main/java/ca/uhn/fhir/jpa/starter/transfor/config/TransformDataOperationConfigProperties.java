@@ -4,7 +4,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -60,6 +59,9 @@ public class TransformDataOperationConfigProperties {
 
 	// 해당 순서대로 변환하는 source 데이터의 가장 앞쪽에 배치된다.
 	private Set<String> resourceUpperSortingReferenceSet;
+
+	@Value("${service.transfor.map.location}")
+	private String transformMapLocation;
 
 	public TransformDataOperationConfigProperties(){
 		// 순서상 먼저 생성되어야하는 리소스 요소
@@ -128,4 +130,6 @@ public class TransformDataOperationConfigProperties {
 	public boolean isDebugPerformancePrintOperationTimeStack() {
 		return debugPerformancePrintOperationTimeStack;
 	}
+
+	public String getTransformMapLocation() {	return transformMapLocation; }
 }

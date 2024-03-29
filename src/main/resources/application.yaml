@@ -1,5 +1,8 @@
-#Adds the option to go to eg. http://localhost:8080/actuator/health for seeing the running configuration
-#see https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html#actuator.endpoints
+# 2024. 03. 22.
+# MustRead ..
+#  로컬 환경에서만 해당 application.yaml 에서 동작합니다.
+# docker-compose 를 활용하는 경우에는 특정 경로의 mount 되어있는 application.yaml 을 활용합니다.
+# 반드시 해당 이슈의 대하여 참고해주세요.
 management:
   endpoints:
     web:
@@ -14,16 +17,18 @@ spring:
     check-location: false
     baselineOnMigrate: true
   datasource:
+    # h2 DB
     url: 'jdbc:h2:file:./target/database/h2'
-    #url: jdbc:h2:mem:test_mem
-    #url: 'jdbc:postgresql://hapi-fhir-postgres:5432/hapi_dstu3'
+    ##url: jdbc:h2:mem:test_mem
     username: sa
     password: null
     driverClassName: org.h2.Driver
+    # PostgresQL DB
+    #url: 'jdbc:postgresql://hapi-fhir-postgres:5432/hapi_dstu3'
     #username: DTxUser
     #password: Khmc1803!
     #driverClassName: org.postgresql.Driver
-    max-active: 15
+    #max-active: 15
 
     # database connection pool size
     # 2023. 10. 16. Terminology 특성상 Pooling 니즈는 많으나 요구량은 작아 Pool 사이즈 증가
@@ -205,7 +210,7 @@ hapi:
     #    reuse_cached_search_results_millis: 60000
     tester:
       home:
-        name: Local Tester
+        name: Hospital
         server_address: 'http://localhost:8080/fhir'
         #server_address: 'https://fhrdev.khmc.or.kr/fhir'
         refuse_to_fetch_third_party_urls: false
@@ -214,7 +219,7 @@ hapi:
         #  requests_enabled: true
         #  responses_enabled: true
       global:
-        name: Global Tester
+        name: Global
         server_address: "http://hapi.fhir.org/baseR4"
         refuse_to_fetch_third_party_urls: false
         fhir_version: R4
@@ -262,10 +267,6 @@ hapi:
 service:
   terminology:
     ig:
-      # for window local
-      #location: C:\\FHIRLoader\\package
-      #examplelocation: C:\\FHIRLoader\\package\\example
-      # for linux server
       location: /app/ig/structure
       examplelocation: /app/ig/example
     common:
@@ -290,6 +291,12 @@ service:
         enabled: true
         url: http://fhrdev.cmcnu.or.kr/fhir
   transfor:
+    enabled: true
+    type: client #engine+ref # client
+    map:
+      location: C:\\FHIRLoader\\hapi-fhir-jpaserver-for-terminology\\fhir\\TransformMap
+     #location: ./fhir/TransformMap
+     #location: /data/map
     performance:
       thread:
         enabled : true
@@ -297,8 +304,6 @@ service:
     cache:
       useyn: true
       type: global # local(각 요청별 독립적인 cache Poll 활용), global(서버 내 모든 리퀘스트에 같은 cache Poll 활용), external(외부 cache 정보 활용)
-    enabled: true
-    type: engine+ref
     target: cmc
     logging: true
     ignorenoencounter: true

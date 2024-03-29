@@ -2,16 +2,11 @@ package ca.uhn.fhir.jpa.starter.transfor.operation;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.jpa.provider.BaseJpaProvider;
-import ca.uhn.fhir.jpa.starter.transfor.base.code.ErrorHandleType;
-import ca.uhn.fhir.jpa.starter.transfor.base.code.RuleType;
-import ca.uhn.fhir.jpa.starter.transfor.base.code.TransactionType;
 import ca.uhn.fhir.jpa.starter.transfor.base.core.MetaEngine;
 import ca.uhn.fhir.jpa.starter.transfor.base.core.TransformEngine;
 import ca.uhn.fhir.jpa.starter.transfor.base.core.ValidationEngine;
 import ca.uhn.fhir.jpa.starter.transfor.base.map.MetaRule;
-import ca.uhn.fhir.jpa.starter.transfor.base.map.RuleNode;
 import ca.uhn.fhir.jpa.starter.transfor.base.reference.structure.ReferenceCacheHandler;
-import ca.uhn.fhir.jpa.starter.transfor.base.util.MapperUtils;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
 import ca.uhn.fhir.jpa.starter.transfor.dto.comm.ResponseDto;
 import ca.uhn.fhir.jpa.starter.transfor.operation.code.ResponseStateCode;
@@ -26,7 +21,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.commons.io.IOUtils;
-import org.apache.jena.base.Sys;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
@@ -40,6 +34,7 @@ import org.springframework.context.annotation.Primary;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -154,6 +149,8 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 
 			retMessage = jsonStr;
 			timer.printAllTimeStack();
+			timer.exportStackToExcel("C:\\TransformStandard-Test-Data" + this.getCurrentDateTime() + ".xlsx");
+
 		}catch(Exception e) {
 			e.printStackTrace();
 			ResponseDto<String> responseDto = ResponseDto.<String>builder().success(ResponseStateCode.BAD_REQUEST.getSuccess()).stateCode(ResponseStateCode.BAD_REQUEST.getStateCode()).errorReason("-").body("-").createCount(0).build();
@@ -167,7 +164,6 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 			theResponse.getWriter().close();
 		}
 	}
-
 	private List<IBaseResource> createResourceMultiThread(Map.Entry<String, JsonElement> entry) throws Exception{
 		List<IBaseResource> retResourceList = new ArrayList<>();
 		JsonElement elements = entry.getValue();
@@ -187,7 +183,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 				ourLog.error("[ERR] 해당 리소스에 MapType이 없습니다.");
 				throw new IllegalArgumentException("[ERR] 해당 리소스에 MapType이 없습니다.");
 			}else{
-				mapScript = TransformUtil.getMap(mapType);
+				mapScript = TransformUtil.getMap(mapType, transformDataOperationConfigProperties.getTransformMapLocation());
 			}
 
 		}catch(JSONException e){
@@ -258,7 +254,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 				ourLog.error("[ERR] 해당 리소스에 MapType이 없습니다.");
 				throw new IllegalArgumentException("[ERR] 해당 리소스에 MapType이 없습니다.");
 			}else{
-				mapScript = TransformUtil.getMap(mapType);
+				mapScript = TransformUtil.getMap(mapType, transformDataOperationConfigProperties.getTransformMapLocation());
 			}
 
 		}catch(JSONException e){
@@ -299,5 +295,11 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 		if(transformDataOperationConfigProperties.isTransforLogging()){
 			ourLog.info(arg);
 		}
+	}
+
+	public static String getCurrentDateTime() {
+		SimpleDateFormat formatter = new SimpleDateFormat("yyMMddHHmmss");
+		Date now = new Date();
+		return formatter.format(now);
 	}
 }

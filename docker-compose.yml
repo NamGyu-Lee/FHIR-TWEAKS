@@ -2,6 +2,7 @@ version: "3.8"
 services:
   nginx:
     image: nginx:stable
+    container_name: fhir-nginx
     restart: always
     ports:
       - target : 80
@@ -10,23 +11,24 @@ services:
     environment:
       - TZ=Asia/Seoul
     volumes:
-      - /product/nginx/logs:/var/log/nginx/
-      - /product/nginx/conf/nginx.conf:/etc/nginx/nginx.conf
-  hapi-fhir-jpaserver-start:
+      - /data/nginx/logging:/var/log/nginx/
+      - ./nginx/conf/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssh:/ssh
+  hapi-fhir-jpaserver-phis:
+    image: hapi-fhir-jpaserver-phis:1.0
     build: .
-    container_name: hapi-fhir-jpaserver-start
+    container_name: hapi-fhir-jpaserver-phis
     restart: on-failure
     ports:
       - target: 8080
         published: 10001
         protocol: tcp
-    configs:
-      - source: hapi
-        target: /data/hapi/application.yaml
     volumes:
-      - /product/ig:/app/ig/
-      - /product/fhir/initSetting:/data/hapi
-      - /product/fhir/theme:/theme
+      - ./fhir/application.yaml:/data/hapi/application.yaml
+      - ./fhir/ImplementationGuides:/app/ig/
+      - ./fhir/Theme:/theme
+      - ./fhir/Map:/data/map
+      - /data/fhir/Logging:/data/logging
     environment:
       SPRING_CONFIG_LOCATION: 'file:///data/hapi/application.yaml'
   hapi-fhir-postgres:
@@ -38,4 +40,36 @@ services:
       POSTGRES_USER: "DTxUser"
       POSTGRES_PASSWORD: "Khmc1803!"
     volumes:
-      - /product/postgres:/var/lib/postgresql/data
+      - /data/fhir/postgres:/var/lib/postgresql/data
+  fhir-create:
+    image: tomcat:8.5
+    restart: always
+    volumes:
+      - ./convert/log:/usr/local/tomcat/logs/
+      - ./convert/webapps:/usr/local/tomcat/webapps/
+    environment:
+      # 교육
+      # - DS_URL=jdbc:oracle:thin:@172.17.111.61:1525/HIS012
+      # 운영
+      - DS_URL=jdbc:oracle:thin:@172.17.31.151:1521/HIS012
+      - DS_USERNAME=DUSU01
+      - DS_PASSWORD=ExanuhisDusu01_0012
+      - FHIR_BASEURL=http://fhr012.cmcnu.or.kr/fhir
+      - FHIR_RESOURCE_GROUPID=CMC
+      - RES_PER_ITER=100
+      - MAX_ITER=20
+      - ITER_INTERVAL_SEC=5
+      - TZ=Asia/Seoul
+    ports:
+      - target: 8080
+        published: 10002
+        protocol: tcp
+    deploy:
+      resources:
+        limits:
+          cpus: '2.00'
+          memory: 1000M
+        reservations:
+          cpus: '0.05'
+          memory: 200M
+

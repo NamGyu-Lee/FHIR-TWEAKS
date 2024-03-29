@@ -4,17 +4,11 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.context.FhirVersionEnum;
 import ca.uhn.fhir.context.support.IValidationSupport;
 import ca.uhn.fhir.jpa.provider.BaseJpaProvider;
-import ca.uhn.fhir.jpa.starter.terminology.util.FHIRUtils;
 import ca.uhn.fhir.jpa.starter.validation.config.CustomValidationRemoteConfigProperties;
-import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
-import ca.uhn.fhir.rest.gclient.IOperationUnnamed;
-import ca.uhn.fhir.util.ParametersUtil;
 import lombok.NonNull;
 import org.apache.commons.lang3.StringUtils;
-import org.hl7.fhir.instance.model.api.IBaseParameters;
 import org.hl7.fhir.r4.model.*;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Iterator;
 
