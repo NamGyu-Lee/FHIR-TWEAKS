@@ -69,8 +69,9 @@ public class ResourceTransformTask implements Callable<IBaseResource>{
 
 				// 캐시값 조회 후 추가
 				timer.startTimer();
-
-				metaEngine.setReference(metaRule, sourceObject);
+				synchronized (this) {
+					metaEngine.setReference(metaRule, sourceObject);
+				}
 				timer.endTimer("5. Resource 요청별 Cache 조회");
 
 				// 2.4.1. FHIR 데이터 생성
@@ -82,7 +83,9 @@ public class ResourceTransformTask implements Callable<IBaseResource>{
 				// 2.4.3. 캐시 처리
 				timer.startTimer();
 				if(metaRule.getCacheDataKey().size() != 0){
-					metaEngine.putCacheResource(metaRule, sourceObject, resource, null);
+					synchronized (this) {
+						metaEngine.putCacheResource(metaRule, sourceObject, resource, null);
+					}
 				}
 				timer.endTimer("7. Resource 요청별 FHIR 생성");
 

@@ -27,8 +27,8 @@
  * reference=MERGE('Practitioner/', Practitioner_id)
 * (specialty).specialty
  * (coding).coding
-  * system='https://hira.or.kr/CodeSystem/medical-subject'
-  * code=subj_cd
+  * system='http://www.hl7korea.or.kr/CodeSystem/hira-medical-department'
+  * code=SPLIT(subj_cd, 0, 2)
   * display=subj_nm
 * (code).code
  * (coding).coding

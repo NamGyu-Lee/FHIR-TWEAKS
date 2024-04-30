@@ -22,9 +22,9 @@
 -----
 * resourceType='Procedure'
 * id=(KEY)MERGE('PD', '.', Organization_id, '.', seq_no)
-* state=srg_st
- * (profile).profile
-  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-procedure'
+* (profile).profile
+ * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-procedure'
+* status=srg_st
 * identifier
  * system=Organization_id
  * value=MERGE('PD', '.', Organization_id, '.', seq_no)

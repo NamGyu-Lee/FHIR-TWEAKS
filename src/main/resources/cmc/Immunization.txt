@@ -2,36 +2,37 @@
 * metadata
  * mapping
   * error_policy = exception
-  * cacheKey = inst_cd, seq_no
+  * cacheKey = inst_cd, seq_no # FHIR 리소스의 고유한 정보를 생성할 값
   * mergeKey = -
+  # 레퍼런스로 활용하는 값들을 가져오기 위해서 정의
   * referenceData
    * referenceResource
     * target = Organization
-    * depend_policy = exception
+    * depend_policy = exception # 이 레퍼런스가 없으면 오류인지, 주의인지, 없어도 괜찮은지 결정
     * inst_cd -> inst_cd :: -
    * referenceResource
     * target = Patient
-    * depend_policy = exception
+    * depend_policy = exception # 이 레퍼런스가 없으면 오류인지, 주의인지, 없어도 괜찮은지 결정
     * inst_cd -> inst_cd :: -
     * pat_id -> pat_id :: -
 -----
 * resourceType='Immunization'
-* id=(KEY)MERGE(Organization_id, '.', seq_no)
+* id=(KEY)MERGE(Organization_id, '.', seq_no) # 병원 요구사항에 맞게 수정하세요.
 * meta
  * (profile).profile
-  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-immunization'
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-immunization' # 고정값임
 * identifier
  * system=Organization_id
- * value=MERGE(Organization_id, '.', seq_no)
+ * value=MERGE(Organization_id, '.', seq_no) # id와 흡사하면 추후 찾기 편합니다.
 * status='completed'
 * vaccineCode
  * (coding).coding
   * system='http://www.hl7korea.or.kr/CodeSystem/kpis-kdcode'
-  * code=edi_cd
-  * display=vcn_nm
- * text=vcn_nm
+  * code=edi_cd   # EDI값
+  * display=vcn_nm # EDI 값과 매칭되는 백신의 이름.
+ * text=vcn_nm # 백신 명칭
 * patient
  * reference=MERGE('Patient/' ,Patient_id)
-* occurrenceDateTime=DATE(vcn_dte, 'yyyyMMdd', 'yyyy-MM-dd')
+* occurrenceDateTime=DATE(vcn_dte, 'yyyyMMdd', 'yyyy-MM-dd') # 백신의 주사일자.
 * (protocolApplied).protocolApplied
- * doseNumberPositiveInt=vcn_tme
+ * doseNumberPositiveInt=vcn_tme # 백신의 주사 차 수

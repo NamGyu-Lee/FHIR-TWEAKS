@@ -11,7 +11,7 @@
     * inst_cd -> inst_cd :: -
 -----
 * resourceType='Patient'
-* id=(KEY)MERGE(Organization_id, '.', pat_id)
+* id=(KEY)UUID()
 * meta
  * (profile).profile
   * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-patient'

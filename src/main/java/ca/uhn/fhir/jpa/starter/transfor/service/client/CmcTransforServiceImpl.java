@@ -35,23 +35,23 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		organization.setMeta(meta);
 
 		// id
-		List<String> prcpCdSplict = this.splitByDot(requestMap.get("proc_corp_cd"));
-		organization.setId(prcpCdSplict.get(prcpCdSplict.size()-1) + "." + requestMap.get("inst_cd"));
+		String prcpCdSplict = requestMap.get("cisn");
+		organization.setId(prcpCdSplict + "." + requestMap.get("inst_cd"));
 
 		// identifier
 		Map<String, String> reqIdentifierKrCore = new HashMap<>();
 		reqIdentifierKrCore.put("system", "http://www.hl7korea.or.kr/Identifier/hira-krnpi");
-		reqIdentifierKrCore.put("value", requestMap.get("proc_corp_cd"));
+		reqIdentifierKrCore.put("value", requestMap.get("cisn"));
 
 		Map<String, String> reqIdentifierDtx = new HashMap<>();
 		reqIdentifierDtx.put("system", "urn:ietf:rfc:3986");
-		reqIdentifierDtx.put("value", requestMap.get("proc_corp_cd"));
+		reqIdentifierDtx.put("value", requestMap.get("cisn"));
 		organization.setIdentifier(createIdentifier(null, reqIdentifierKrCore, reqIdentifierDtx));
 
 		// type
 		Map<String, String> codingMap = new HashMap<>();
 		codingMap.put("system", "http://www.hl7korea.or.kr/CodeSystem/hira-healthcare-organization-types");
-		codingMap.put("code", requestMap.get("hosp_flag"));
+		codingMap.put("code", requestMap.get("hpcf_dvcd"));
 		List<Coding> codingList = createCoding(codingMap);
 
 		CodeableConcept cc = new CodeableConcept();
@@ -65,7 +65,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		organization.setActive(true);
 
 		// name
-		organization.setName(requestMap.get("hosp_nm"));
+		organization.setName(requestMap.get("care_inst_nm"));
 
 		// telecom
 		ContactPoint contactPoint = new ContactPoint();
@@ -77,7 +77,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		// address
 		Address address = new Address();
 		address.setText(requestMap.get("hosp_addr"));
-		address.setPostalCode(requestMap.get("zipcd"));
+		address.setPostalCode(requestMap.get("zip"));
 
 		List<Address> addressList = new ArrayList<>();
 		addressList.add(address);
@@ -95,7 +95,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		meta.setProfile(createProfiles("http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-patient", "http://connectdtx.kr/fhir/StructureDefinition/connectdtx-patient"));
 		patient.setMeta(meta);
 
-		String uniqueIdent = requestMap.get("proc_corp_cd") + "." + requestMap.get("pid");
+		String uniqueIdent = organizationId + "." + requestMap.get("pat_id");
 
 		// id
 		patient.setId(uniqueIdent);
@@ -117,7 +117,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 
 		// name
 		HumanName hn = new HumanName();
-		hn.setText(requestMap.get("hng_nm"));
+		hn.setText(requestMap.get("pat_flnm"));
 		List<HumanName> humanNames = new ArrayList<>();
 		humanNames.add(hn);
 		patient.setName(humanNames);
@@ -125,16 +125,16 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		// telecom
 		ContactPoint contactPoint = new ContactPoint();
 		contactPoint.setSystem(ContactPoint.ContactPointSystem.PHONE);
-		contactPoint.setValue(requestMap.get("prtb_telno"));
+		contactPoint.setValue(requestMap.get("telno"));
 		List<org.hl7.fhir.r4.model.ContactPoint> contactPointList = new ArrayList<>();
 		contactPointList.add(contactPoint);
 		patient.setTelecom(contactPointList);
 
 		// gender
 		String genderCd = requestMap.get("sex_cd");
-		if("M".equals(genderCd)){
+		if("male".equals(genderCd)){
 			patient.setGender(Enumerations.AdministrativeGender.MALE);
-		}else if("F".equals(genderCd)){
+		}else if("female".equals(genderCd)){
 			patient.setGender(Enumerations.AdministrativeGender.FEMALE);
 		}else{
 			patient.setGender(Enumerations.AdministrativeGender.UNKNOWN);
@@ -142,7 +142,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 
 		// birthdate
 		try {
-			patient.setBirthDate(SDF_YMD.parse(requestMap.get("brth_dd")));
+			patient.setBirthDate(SDF_YMD.parse(requestMap.get("brdt")));
 		}catch(java.text.ParseException e){
 			throw new IllegalArgumentException(" Patient 생성 과정중 오류가 발생하였습니다. 생년월일은 YYYYMMDD 형식이어야 합니다.");
 		}
@@ -160,12 +160,12 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		Practitioner practitioner = new Practitioner();
 
 		// id
-		practitioner.setId("PRCT." + organizationId + "." + requestMap.get("ord_dr_id"));
+		practitioner.setId("PRCT." + organizationId + "." + requestMap.get("dr_id"));
 
 		// identifier
 		Map<String, String> reqIdentifier = new HashMap<>();
 		reqIdentifier.put("system", "http://www.hl7korea.or.kr/Identifier/local-practitioner-identifier");
-		reqIdentifier.put("value", requestMap.get("ord_dr_id"));
+		reqIdentifier.put("value", requestMap.get("dr_id"));
 		practitioner.setIdentifier(createIdentifier(null, reqIdentifier));
 
 		// profile
@@ -178,7 +178,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 
 		// name
 		HumanName humanName = new HumanName();
-		humanName.setText(requestMap.get("ord_dr_nm"));
+		humanName.setText(requestMap.get("dr_flnm"));
 
 		List<HumanName> humanNameList = new ArrayList<>();
 		humanNameList.add(humanName);
@@ -216,7 +216,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		PractitionerRole practitionerRole = new PractitionerRole();
 
 		// id
-		practitionerRole.setId("PROL." + organizationId + "." + requestMap.get("ord_dr_id"));
+		practitionerRole.setId("PROL." + organizationId + "." + requestMap.get("dr_id"));
 
 		// identifier
 		Map<String, String> reqIdentifier = new HashMap<>();
@@ -226,14 +226,14 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		// 2023. 11. 14. ConnectDtx 에서 요구사항에 따라 해당 값은 SHA-256 해시 처리
 		List<String> organizationIdSplit = this.splitByDot(organizationId);
 		String organizationOid = organizationIdSplit.get(0);
-		String hashTarget = organizationOid + "|" + requestMap.get("clam_dept_cd") + "|" +requestMap.get("ord_dr_id");
+		String hashTarget = organizationOid + "|" + requestMap.get("subj_cd") + "|" +requestMap.get("dr_id");
 		String identifierValue = "";
 		try {
 			identifierValue = this.hash("SHA-256", hashTarget);
 		}catch(java.security.NoSuchAlgorithmException e){
 
 		}
-		reqIdentifier.put("value", "ROLE" + "." + requestMap.get("ord_dr_id"));
+		reqIdentifier.put("value", "ROLE" + "." + requestMap.get("dr_id"));
 		practitionerRole.setIdentifier(createIdentifier(null, reqIdentifier));
 
 		// profile
@@ -277,8 +277,8 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		// 2. ConnectDTx 구조
 		Map<String, String> specMap = new HashMap<>();
 		specMap.put("system", "https://hira.or.kr/CodeSystem/medical-subject");
-		specMap.put("code", requestMap.get("clam_dept_cd"));
-		specMap.put("display", requestMap.get("clam_dept_nm"));
+		specMap.put("code", requestMap.get("subj_cd"));
+		specMap.put("display", requestMap.get("subj_nm"));
 		List<Coding> specCodingList = createCoding(specMap);
 		CodeableConcept sepcc = new CodeableConcept();
 		sepcc.setCoding(specCodingList);
@@ -301,11 +301,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		Encounter encounter = new Encounter();
 		String uniqueId = "ENC."
 			+ organizationId + "."
-			+ requestMap.get("ord_dept_cd") + "."
-			+ requestMap.get("ord_dd") + "."
-			+ requestMap.get("cret_no") + "."
-			+ requestMap.get("ord_dr_id") + "."
-			+ requestMap.get("ord_type_cd")
+			+ requestMap.get("rcpt_no")
 			;
 
 		// identifier
@@ -344,7 +340,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		*/
 
 		// class
-		String IoFlagStr = requestMap.get("ord_type_cd");
+		String IoFlagStr = requestMap.get("prct_dvcd");
 		String exchangedIOFlagCode = "";
 		if("O".equals(IoFlagStr)){
 			exchangedIOFlagCode = "AMB";
@@ -353,7 +349,8 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		}else if("E".equals(IoFlagStr)){
 			exchangedIOFlagCode = "EMER";
 		}else{
-			throw new IllegalArgumentException("진료 내역 중 알 수없는 유형코드(외래 입원 등) 가 들어와 오류가 발생하였습니다.");
+			exchangedIOFlagCode = "AMB";
+			//throw new IllegalArgumentException("진료 내역 중 알 수없는 유형코드(외래 입원 등) 가 들어와 오류가 발생하였습니다.");
 		}
 		Map<String, String> encouterCodingMap = new HashMap<>();
 		encouterCodingMap.put("system", "http://terminology.hl7.org/CodeSystem/v3-ActCode");
@@ -364,7 +361,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		Period period = new Period();
 		Date periodStartDate;
 		try {
-			periodStartDate = SDF_YMD.parse(requestMap.get("ord_dd"));
+			periodStartDate = SDF_YMD.parse(requestMap.get("medi_bgng_ymd"));
 		} catch (java.text.ParseException e) {
 			throw new IllegalArgumentException("진료 시작일자 오류.");
 		}
@@ -374,7 +371,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 
 		Date periodEndDate;
 		try {
-			periodEndDate = SDF_YMD.parse(requestMap.get("dsch_dd"));
+			periodEndDate = SDF_YMD.parse(requestMap.get("medi_end_ymd"));
 		} catch (java.text.ParseException e) {
 			throw new IllegalArgumentException("진료 시작일자 오류.");
 		}
@@ -442,7 +439,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		Map<String, String> code = new HashMap<>();
 		code.put("system", "https://kostat.or.kr/CodeSystem/kcd-8");
 		code.put("code", diagCd);
-		code.put("display", requestMap.get("diag_eng_nm"));
+		code.put("display", requestMap.get("diag_nm"));
 		List<Coding> codingList = createCoding(code);
 		CodeableConcept concept = new CodeableConcept();
 		concept.setCoding(codingList);
@@ -456,7 +453,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 
 		// recordedDate
 		try{
-			condition.setRecordedDate(SDF_YMD.parse(requestMap.get("diag_dd")));
+			condition.setRecordedDate(SDF_YMD.parse(requestMap.get("medi_bgng_ymd")));
 		}catch(java.text.ParseException e){
 			throw new IllegalArgumentException(" > Condition 생성 과정에서 생성 날짜타입이 달라 Parsing 이 제대로 처리되지 않았습니다.");
 		}
@@ -468,7 +465,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 	public MedicationRequest transformPlatDataToFhirMedicationRequest(String organizationId, String patientId, String practitionerRoleId, String encounterId, Map<String, String> requestMap){
 		MedicationRequest medicationRequest = new MedicationRequest();
 
-		String medIdentifier = "MR." + organizationId + "." + patientId + "." + requestMap.get("prcp_no");
+		String medIdentifier = "MR." + requestMap.get("seq_no");
 
 		// identifier
 		Map<String, String> reqIdentifier = new HashMap<>();
@@ -491,7 +488,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		medicationRequest.setStatus(MedicationRequest.MedicationRequestStatus.COMPLETED);
 
 		// medication
-		medicationRequest.setMedication(new Reference("Medication/" + "MD." + requestMap.get("edi_cd")));
+		medicationRequest.setMedication(new Reference("Medication/" + "MD." + requestMap.get("seq_no")));
 
 		// subject
 		medicationRequest.setSubject(new Reference("Patient/" + patientId));
@@ -501,7 +498,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 
 		// authorized
 		try {
-			medicationRequest.setAuthoredOn(SDF_YMD.parse(requestMap.get("prcp_dd")));
+			medicationRequest.setAuthoredOn(SDF_YMD.parse(requestMap.get("rx_dt")));
 		}catch(java.text.ParseException e){
 			throw new IllegalArgumentException("MedicationRequest 데이터 생성 과정에서 날짜타입이 상이하여 오류가 발생하였습니다.");
 		}
@@ -513,8 +510,8 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		Dosage.DosageDoseAndRateComponent comp = new Dosage.DosageDoseAndRateComponent();
 		// 1) dose
 		SimpleQuantity dosageQuantity = new SimpleQuantity();
-		dosageQuantity.setValue(Double.parseDouble(requestMap.get("prcp_vol")));
-		dosageQuantity.setUnit(requestMap.get("prcp_vol_unit_nm"));
+		dosageQuantity.setValue(Double.parseDouble(requestMap.get("once_dose_qty")));
+		dosageQuantity.setUnit(requestMap.get("unit"));
 		//dosageQuantity.setSystem("http://unitsofmeasure.org");
 		//dosageQuantity.setCode("{tbl}");
 		comp.setDose(dosageQuantity);
@@ -523,8 +520,8 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		// 2) timing
 		Timing timing = new Timing();
 		Timing.TimingRepeatComponent timingRepeatComponent = new  Timing.TimingRepeatComponent();
-		timingRepeatComponent.setFrequency(Integer.parseInt(requestMap.get("freq_cnt")));
-		timingRepeatComponent.setPeriod(Double.parseDouble(requestMap.get("prcp_days")));
+		timingRepeatComponent.setFrequency(Integer.parseInt(requestMap.get("once_dose_qty")));
+		timingRepeatComponent.setPeriod(Double.parseDouble(requestMap.get("medc_days_unit")));
 		timingRepeatComponent.setPeriodUnit(Timing.UnitsOfTime.D);
 
 		timing.setRepeat(timingRepeatComponent);
@@ -536,7 +533,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		dosage.setRoute(concept);
 
 		// 4) text
-		dosage.setText(requestMap.get("abbr_nm"));
+		dosage.setText(requestMap.get("dmnd_sts"));
 
 		theDosageInstruction.add(dosage);
 		medicationRequest.setDosageInstruction(theDosageInstruction);
@@ -548,7 +545,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 	public Medication transformPlatDataToFhirMedication(Map<String, String> requestMap){
 		Medication medication = new Medication();
 
-		String medicationIdentifier = "MD."+requestMap.get("edi_cd");
+		String medicationIdentifier = "MD."+requestMap.get("seq_no");
 
 		// id
 		medication.setId(medicationIdentifier);
@@ -557,7 +554,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		Map<String, String> reqIdentifier = new HashMap<>();
 		reqIdentifier.put("system", "http://www.hl7korea.or.kr/CodeSystem/hira-edi-medication");
 		reqIdentifier.put("value", medicationIdentifier);
-		reqIdentifier.put("display", requestMap.get("edi_nm"));
+		reqIdentifier.put("display", requestMap.get("rx_nm"));
 		medication.setIdentifier(createIdentifier(null, reqIdentifier));
 
 		// profile
@@ -573,8 +570,8 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		List<Coding> codingList = new ArrayList<>();
 		Coding coding = new Coding();
 		coding.setSystem("http://www.hl7korea.or.kr/CodeSystem/hira-edi-medication");
-		coding.setCode(requestMap.get("edi_cd"));
-		coding.setDisplay(requestMap.get("edi_nm"));
+		coding.setCode(requestMap.get("rx_cd"));
+		coding.setDisplay(requestMap.get("rx_nm"));
 		codingList.add(coding);
 		codeableConcept.setCoding(codingList);
 		medication.setCode(codeableConcept);
@@ -586,7 +583,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		List<Coding> codingIngredientList = new ArrayList<>();
 		Coding codingIngredient = new Coding();
 		codingIngredient.setSystem("http://www.whocc.no/atc");
-		codingIngredient.setCode(requestMap.get("edi_cd"));
+		codingIngredient.setCode(requestMap.get("rx_cd"));
 		codingIngredientList.add(codingIngredient);
 		conceptIngredient.setCoding(codingIngredientList);
 		medicationIngredientComponent.setItem(conceptIngredient);
@@ -601,7 +598,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 	public Observation transformPlatDataToFhirObservation(String organizationId, String patientId, String encounterId, Map<String, String> requestMap){
 		Observation observation = new Observation();
 
-		String uniqueId = "OB." + organizationId + "." + patientId + requestMap.get("exec_prcp_uniq_no");
+		String uniqueId = "OB." + organizationId + "." + patientId + requestMap.get("seqno");
 
 		// id
 		observation.setId(uniqueId);
@@ -626,14 +623,14 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		List<Coding> codingList = new ArrayList<>();
 		Coding coding = new Coding();
 		coding.setSystem("http://terminology.hl7.org/CodeSystem/observation-category");
-		coding.setCode("laboratory");
+		coding.setCode(requestMap.get("insp_div"));
 		codingList.add(coding);
 		concept.setCoding(codingList);
 		observation.setCategory(conceptList);
 
 		// issue
 		try {
-			observation.setIssued(SDF_YMD.parse(requestMap.get("prcp_dd")));
+			observation.setIssued(SDF_YMD.parse(requestMap.get("insp_dt")));
 		}catch (ParseException e){
 			throw new IllegalArgumentException("Observation 생성 과정중 오류가 발생하였습니다. 실시일자(test_dt) 파싱 과정에서 오류가 발생하였습니다.");
 		}
@@ -643,47 +640,44 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		List<Coding> codingListForCoding = new ArrayList<>();
 		Coding codingForCoding = new Coding();
 		codingForCoding.setSystem("https://hira.or.kr/CodeSystem/lab-result-code");
-		codingForCoding.setCode(requestMap.get("edi_cd"));
-		codingForCoding.setDisplay(requestMap.get("test_cls_nm"));
+		codingForCoding.setCode(requestMap.get("insp_cd"));
+		codingForCoding.setDisplay(requestMap.get("insp_nm"));
 		codingListForCoding.add(codingForCoding);
 		conceptForCoding.setCoding(codingListForCoding);
 		observation.setCode(conceptForCoding);
 
 		// value
-		if("valueQuantity".equals(requestMap.get("chk_flag"))){
+		if(this.checkStringHasInteger(requestMap.get("insp_rslt"))){
 			Quantity quantity = new Quantity();
-			quantity.setValue(Double.parseDouble(requestMap.get("rslt_val")));
-			quantity.setUnit(requestMap.get("rslt_val_unit_cd"));
+			quantity.setValue(Double.parseDouble(requestMap.get("insp_rslt")));
+			quantity.setUnit(requestMap.get("unit"));
 			observation.setValue(quantity);
-		}else if("valueString".equals(requestMap.get(""))){
-			StringType stringType = new StringType();
-			stringType.setValue(requestMap.get("rslt_val"));
 		}else{
-			System.out.println("오류 발생 ... !");
-			//throw new IllegalArgumentException("Observation 생성 과정중 오류가 발생하였습니다. 정상적인 결과값 유형이 아닙니다.");
+			StringType stringType = new StringType();
+			stringType.setValue(requestMap.get("insp_rslt"));
 		}
 
 		try {
 			// referenceRange
-			if ("valueQuantity".equals(requestMap.get("chk_flag"))) {
+			if (this.checkStringHasInteger(requestMap.get("insp_rslt"))) {
 				Observation.ObservationReferenceRangeComponent component = new Observation.ObservationReferenceRangeComponent();
-				String rfvlLower = requestMap.get("rfvl_lwlm_val");
-				String rfvlUpper = requestMap.get("rfvl_uplm_val");
+				String rfvlLower = requestMap.get("lwer_ref_val");
+				String rfvlUpper = requestMap.get("up_ref_unit");
 				if (rfvlLower != null && rfvlUpper != null && !"null".equals(rfvlLower) && !"null".equals(rfvlUpper)) {
 					Quantity quantityLow = new Quantity(Double.parseDouble(rfvlLower));
 					quantityLow.setUnit(requestMap.get("rslt_val_unit_cd"));
 					component.setLow(quantityLow);
 
 					Quantity quantityUpper = new Quantity(Double.parseDouble(rfvlUpper));
-					quantityUpper.setUnit(requestMap.get("rslt_val_unit_cd"));
+					quantityUpper.setUnit(requestMap.get("lwer_ref_unit"));
 					component.setLow(quantityUpper);
 				} else if (rfvlLower == null && rfvlUpper != null && "null".equals(rfvlLower) && !"null".equals(rfvlUpper)) {
 					Quantity quantityUpper = new Quantity(Double.parseDouble(rfvlUpper));
-					quantityUpper.setUnit(requestMap.get("rslt_val_unit_cd"));
+					quantityUpper.setUnit(requestMap.get("lwer_ref_unit"));
 					component.setLow(quantityUpper);
 				} else if (rfvlUpper == null && rfvlLower != null && !"null".equals(rfvlLower) && "null".equals(rfvlUpper)) {
 					Quantity quantityLow = new Quantity(Double.parseDouble(rfvlLower));
-					quantityLow.setUnit(requestMap.get("rslt_val_unit_cd"));
+					quantityLow.setUnit(requestMap.get("up_ref_unit"));
 					component.setLow(quantityLow);
 				}
 
@@ -708,7 +702,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 	public Observation transformPlatDataToFhirObservationExam(String organizationId, String patientId, String encounterId, Map<String, String> requestMap){
 		Observation observation = new Observation();
 
-		String uniqueId = "OB.EX." + organizationId + "." + patientId + requestMap.get("exec_prcp_uniq_no");
+		String uniqueId = "OB.EX." + requestMap.get("seqno");
 
 		// id
 		observation.setId(uniqueId);
@@ -743,9 +737,9 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		List<Coding> codingList = new ArrayList<>();
 		Coding codeForCoding = new Coding();
 		codeForCoding.setSystem("http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure");
-		codeForCoding.setCode(requestMap.get("edi_cd"));
-		codeForCoding.setDisplay(requestMap.get("test_nm"));
-		codeableConcept.setText(requestMap.get("test_nm"));
+		codeForCoding.setCode(requestMap.get("insp_cd"));
+		codeForCoding.setDisplay(requestMap.get("insp_nm"));
+		codeableConcept.setText(requestMap.get("insp_nm"));
 		observation.setCode(codeableConcept);
 
 		// subject
@@ -764,7 +758,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		// effective
 		DateTimeType dt = new DateTimeType();
 		try {
-			dt.setValue(SDF_YMD.parse(requestMap.get("test_dt").substring(0, 8)));
+			dt.setValue(SDF_YMD.parse(requestMap.get("insp_dt").substring(0, 8)));
 		}catch(ParseException e){
 			throw new IllegalArgumentException(" Observation Exam 생성 과정중 오류가 발생하였습니다. 실시일자(test_dt) 파싱 과정에서 오류가 발생하였습니다.");
 		}
@@ -777,7 +771,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 	public DiagnosticReport transformPlatDataToFhirDiagnosticReportPathology(String organizationId, String patientId, String encounterId, Map<String, String> requestMap){
 		DiagnosticReport diagnosticReport = new DiagnosticReport();
 
-		String uniqueId = "DR.P." + organizationId + "." + requestMap.get("exec_prcp_uniq_no");
+		String uniqueId = "DR.P." + organizationId + "." + requestMap.get("seq_no");
 
 		// id
 		diagnosticReport.setId(uniqueId);
@@ -801,11 +795,11 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		List<Coding> codingList = new ArrayList<>();
 		Coding coding = new Coding();
 		coding.setSystem("http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure");
-		coding.setCode(requestMap.get("edi_cd"));
-		coding.setDisplay(requestMap.get("cd_text_nm"));
+		coding.setCode(requestMap.get("insp_cd"));
+		coding.setDisplay(requestMap.get("insp_nm"));
 		codingList.add(coding);
 		concept.setCoding(codingList);
-		concept.setText(requestMap.get("cd_text_nm"));
+		concept.setText(requestMap.get("insp_nm"));
 		diagnosticReport.setCode(concept);
 
 		// effective DateTime
@@ -818,7 +812,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		*/
 
 		// conclusion
-		diagnosticReport.setConclusion(requestMap.get("concl_val"));
+		diagnosticReport.setConclusion(requestMap.get("insp_rslt"));
 
 		// subject
 		diagnosticReport.setSubject(new Reference("Patient/" + patientId));
@@ -830,9 +824,62 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 	}
 
 	@Override
+	public DiagnosticReport transformPlatDataToFhirDiagnosticReportLab(String organizationId, String patientId, String encounterId, Map<String, String> requestMap){
+		DiagnosticReport diagnosticReport = new DiagnosticReport();
+		String uniqueId = "DR.L." + organizationId + "." + requestMap.get("seq_no");
+		diagnosticReport.setId(uniqueId);
+
+		// identifier
+		Map<String, String> reqIdentifier = new HashMap<>();
+		reqIdentifier.put("system", "http://www.hl7korea.or.kr/Identifier/local-diagnosticReport-rdo-identifier" );
+		reqIdentifier.put("value", uniqueId);
+		diagnosticReport.setIdentifier(createIdentifier(null, reqIdentifier));
+
+		// profile
+		Meta meta = new Meta();
+		meta.setProfile(createProfiles("http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-diagnosticreport-diagnostic-imaging"));
+		diagnosticReport.setMeta(meta);
+
+		// status
+		diagnosticReport.setStatus(DiagnosticReport.DiagnosticReportStatus.FINAL);
+
+		// category
+		List<CodeableConcept> categoryCodeList = new ArrayList<>();
+		CodeableConcept categoryConcept = new CodeableConcept();
+		List<Coding> categoryCodingList = new ArrayList<>();
+		Coding categoryCoding = new Coding();
+		categoryCoding.setSystem("http://terminology.hl7.org/CodeSystem/v2-0074");
+		categoryCoding.setCode("LAB");
+		categoryCodingList.add(categoryCoding);
+		categoryConcept.setCoding(categoryCodingList);
+		categoryCodeList.add(categoryConcept);
+		diagnosticReport.setCategory(categoryCodeList);
+
+		// code
+		CodeableConcept concept = new CodeableConcept();
+		List<Coding> codingList = new ArrayList<>();
+		Coding coding = new Coding();
+		coding.setSystem("http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure");
+		coding.setCode(requestMap.get("insp_cd"));
+		coding.setDisplay(requestMap.get("insp_nm"));
+		codingList.add(coding);
+		concept.setCoding(codingList);
+		concept.setText(requestMap.get("insp_nm"));
+		diagnosticReport.setCode(concept);
+
+		// subject
+		diagnosticReport.setSubject(new Reference("Patient/" + patientId));
+
+		// encounter
+		diagnosticReport.setEncounter(new Reference("Encounter/"+ encounterId));
+
+		return diagnosticReport;
+	}
+
+	@Override
 	public DiagnosticReport transformPlatDataToFhirDiagnosticReportRadiology(String organizationId, String patientId, String encounterId, Map<String, String> requestMap){
 		DiagnosticReport diagnosticReport = new DiagnosticReport();
-		String uniqueId = "DR.R." + organizationId + "." + requestMap.get("exec_prcp_uniq_no");
+		String uniqueId = "DR.R." + organizationId + "." + requestMap.get("seq_no");
 
 		// id
 		diagnosticReport.setId(uniqueId);
@@ -868,11 +915,11 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		List<Coding> codingList = new ArrayList<>();
 		Coding coding = new Coding();
 		coding.setSystem("http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure");
-		coding.setCode(requestMap.get("edi_cd"));
-		coding.setDisplay(requestMap.get("test_nm"));
+		coding.setCode(requestMap.get("insp_cd"));
+		coding.setDisplay(requestMap.get("insp_nm"));
 		codingList.add(coding);
 		concept.setCoding(codingList);
-		concept.setText(requestMap.get("text_nm"));
+		concept.setText(requestMap.get("insp_nm"));
 		diagnosticReport.setCode(concept);
 
 		// subject
@@ -888,7 +935,7 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 	public Procedure transformPlatDataToFhirProcedure(String organizationId, String patientId, String encounterId, Map<String, String> requestMap){
 		Procedure procedure = new Procedure();
 
-		String uniqueId = "PD." + organizationId + "." + requestMap.get("op_rsrv_no");
+		String uniqueId = "PD." + organizationId + "." + requestMap.get("seq_no");
 
 		// id
 		procedure.setId(uniqueId);
@@ -912,16 +959,16 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 		List<Coding> codingList = new ArrayList<>();
 		Coding coding = new Coding();
 		coding.setSystem("http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure");
-		coding.setCode(requestMap.get("icd9n_cd"));
-		coding.setDisplay(requestMap.get("op_nm"));
+		coding.setCode(requestMap.get("srg_cd"));
+		coding.setDisplay(requestMap.get("srg_nm"));
 		codingList.add(coding);
 		codeableConcept.setCoding(codingList);
-		codeableConcept.setText(requestMap.get("op_nm"));
+		codeableConcept.setText(requestMap.get("srg_nm"));
 		procedure.setCode(codeableConcept);
 
 		// performedDateTime
 		try {
-			procedure.setPerformed(new DateTimeType(SDF_YMD.parse(requestMap.get("op_dd"))));
+			procedure.setPerformed(new DateTimeType(SDF_YMD.parse(requestMap.get("srg_dt"))));
 		}catch (ParseException e){
 			throw new IllegalArgumentException(" Procedure 생성 과정중 오류가 발생하였습니다. 실시일자(op_dd) 파싱 과정에서 오류가 발생하였습니다.");
 		}
@@ -1111,5 +1158,17 @@ public class CmcTransforServiceImpl implements CmcTransforService{
 	public String retResourceToString(IBaseResource resource){
 		FhirContext fn = new FhirContext(FhirVersionEnum.R4);
 		return fn.newJsonParser().encodeResourceToString(resource);
+	}
+
+	public boolean checkStringHasInteger(String input){
+		try {
+			// 시도: 문자열을 float로 변환
+			float value = Float.parseFloat(input);
+			// 성공: 입력은 float 형식의 숫자
+			return true;
+		} catch (NumberFormatException e) {
+			// 실패 (예외 발생): 입력은 숫자가 아닌 문자열
+			return false;
+		}
 	}
 }

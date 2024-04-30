@@ -63,7 +63,7 @@ public class PerformanceChecker {
 		timeLogger.put(arg, timeStack);
 	}
 
-	public void printAllTimeStack(){
+	public double printAllTimeStack(){
 		if(isPrintTimeStack){
 			for(String key : timeLogger.keySet()){
 				//System.out.println("-------------------");
@@ -78,7 +78,9 @@ public class PerformanceChecker {
 			long endTime = System.nanoTime();
 			double duration = (endTime - initTime) / 1_000_000.0;
 			System.out.println("작업 종료. 작업 시간... : " + duration  + " ms");
+			return duration;
 		}
+			return 0.0;
 	}
 
 	public void addErrorCounter(String errorReason){

@@ -48,7 +48,7 @@ public class MetaEngine {
 	}
 
 	/* 2023. 12. 18. 소스의 데이터에 레퍼런스들을 사용자 정의에 맞게 작성한다. */
-	public void setReference(MetaRule metaRule, JSONObject source) throws IllegalArgumentException{
+	public synchronized void setReference(MetaRule metaRule, JSONObject source) throws IllegalArgumentException{
 		ErrorHandleType metaErrorPolicyType = metaRule.getErrorHandleType();
 		try {
 			List<ReferenceNode> referenceNodeList = metaRule.getReferenceNodeList();
@@ -153,7 +153,7 @@ public class MetaEngine {
 		return null;
 	}
 
-	public boolean putCacheResource(MetaRule metaRule, JSONObject source, @Nullable IBaseResource createdResource, @Nullable Reference createdReference) throws IllegalArgumentException{
+	public synchronized boolean putCacheResource(MetaRule metaRule, JSONObject source, @Nullable IBaseResource createdResource, @Nullable Reference createdReference) throws IllegalArgumentException{
 		try {
 			ourLog.info("---- Meta정보중 Cache Resource 를 적재합니다. ----");
 			if(!transformDataOperationConfigProperties.isTransformCacheEnabled()){

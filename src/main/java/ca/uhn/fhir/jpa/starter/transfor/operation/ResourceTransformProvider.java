@@ -53,7 +53,9 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 
 	private TransformEngine transformEngine;
 
-	private MetaEngine metaEngine;
+	private MetaEngine globalMetaEngine;
+
+	private MetaEngine operationMetaEngine;
 
 	private ValidationEngine validationEngine;
 
@@ -65,13 +67,15 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 
 	private TransformDataOperationConfigProperties transformDataOperationConfigProperties;
 
+	private String resultStackLocationStr = "E:\\python\\20240329_FHIR 생성과정간 속도비교 구성(Client vs Threading MAP)\\";
+
 	@Autowired
 	@Primary
 	void setTransformDataOperationConfigProperties(TransformDataOperationConfigProperties transformDataOperationConfigProperties){
 		this.transformDataOperationConfigProperties = transformDataOperationConfigProperties;
 		transformUtil = new TransformUtil(transformDataOperationConfigProperties);
 		referenceCacheHandler = new ReferenceCacheHandler();
-		metaEngine = new MetaEngine(fn, transformDataOperationConfigProperties, referenceCacheHandler);
+		globalMetaEngine = new MetaEngine(fn, transformDataOperationConfigProperties, referenceCacheHandler);
 	}
 
 	// dev. 동작시간 측정용으로 함수를 구성한다.
@@ -98,6 +102,14 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 		manualResponse = true
 	)
 	public void transforResourceStandardService(HttpServletRequest theServletRequest, HttpServletResponse theResponse) throws IOException {
+		if(!transformDataOperationConfigProperties.getTransformCacheType().equals("global")){
+			// 메모리 등의 이슈로인한 각 오퍼레이션별 캐시 활용 시
+			ourLog.info("");
+			operationMetaEngine = new MetaEngine(fn, transformDataOperationConfigProperties, referenceCacheHandler);
+		}else{
+			operationMetaEngine = globalMetaEngine;
+		}
+
 		String retMessage = "-";
 		// debuging
 		timer = new PerformanceChecker(transformDataOperationConfigProperties.isDebugPerformanceTrackingTimeEach(), transformDataOperationConfigProperties.isDebugPerformancePrintOperationTimeStack());
@@ -148,12 +160,12 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 			String jsonStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseDto);
 
 			retMessage = jsonStr;
-			timer.printAllTimeStack();
-			timer.exportStackToExcel("C:\\TransformStandard-Test-Data" + this.getCurrentDateTime() + ".xlsx");
+			double duration = timer.printAllTimeStack();
+			timer.exportStackToExcel(resultStackLocationStr+"\\transform\\Client-Test-Data-" + this.getCurrentDateTime() + "-" + duration + "-" + createResourceCount +".xlsx");
 
 		}catch(Exception e) {
 			e.printStackTrace();
-			ResponseDto<String> responseDto = ResponseDto.<String>builder().success(ResponseStateCode.BAD_REQUEST.getSuccess()).stateCode(ResponseStateCode.BAD_REQUEST.getStateCode()).errorReason("-").body("-").createCount(0).build();
+			ResponseDto<String> responseDto = ResponseDto.<String>builder().success(ResponseStateCode.BAD_REQUEST.getSuccess()).stateCode(ResponseStateCode.BAD_REQUEST.getStateCode()).errorReason(e.getMessage()).body("-").createCount(0).build();
 			ObjectMapper mapper = new ObjectMapper();
 			String jsonStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseDto);
 			retMessage = jsonStr;
@@ -196,7 +208,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 		// 2.1. metaRule 구성
 		timer.startTimer();
 
-		MetaRule metaRule = metaEngine.getMetaData(mapScript);
+		MetaRule metaRule = operationMetaEngine.getMetaData(mapScript);
 		Set<String> keySet = metaRule.getCacheDataKey();
 		Set<String> mergeDataKeySet = metaRule.getMergeDataKey();
 
@@ -218,7 +230,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 		List<Future<IBaseResource>> futures = new ArrayList<>();
 
 		for(JsonObject eachRowJsonObj : sourceDataJsonList){
-			ResourceTransformTask task = new ResourceTransformTask(mapScript, mapType, eachRowJsonObj, metaRule, transformEngine, metaEngine, timer);
+			ResourceTransformTask task = new ResourceTransformTask(mapScript, mapType, eachRowJsonObj, metaRule, transformEngine, operationMetaEngine, timer);
 			Future<IBaseResource> resourceFuture = executor.submit(task);
 			futures.add(resourceFuture);
 		}
@@ -228,7 +240,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 				// wait callback
 				retResourceList.add(future.get());
 			}catch(ExecutionException | InterruptedException e){
-				throw new IllegalArgumentException("[ERR] Threading 처리과정에서 오류가 발생하였습니다.");
+				throw new IllegalArgumentException("[ERR] Threading 처리과정에서 오류가 발생하였습니다. " + e.getMessage());
 			}
 		}
 		executor.shutdown();
@@ -267,7 +279,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 		// 2.1. metaRule 구성
 		timer.startTimer();
 
-		MetaRule metaRule = metaEngine.getMetaData(mapScript);
+		MetaRule metaRule = operationMetaEngine.getMetaData(mapScript);
 		Set<String> keySet = metaRule.getCacheDataKey();
 		Set<String> mergeDataKeySet = metaRule.getMergeDataKey();
 
@@ -285,7 +297,7 @@ public class ResourceTransformProvider extends BaseJpaProvider {
 
 		// 2.4. 데이터 생성
 		for(JsonObject eachRowJsonObj : sourceDataJsonList){
-			ResourceTransformTask task = new ResourceTransformTask(mapScript, mapType, eachRowJsonObj, metaRule, transformEngine, metaEngine, timer);
+			ResourceTransformTask task = new ResourceTransformTask(mapScript, mapType, eachRowJsonObj, metaRule, transformEngine, operationMetaEngine, timer);
 			retResourceList.add(task.transformResourceEach());
 		}
 		return retResourceList;

@@ -5,11 +5,10 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import net.sf.saxon.expr.instruct.Copy;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /** 2023. 12. 18.
  * 해당 Resource의 메타 정보를 관리한다.
@@ -31,8 +30,8 @@ public class MetaRule {
 	private Set<String> mergeDataKey;
 
 	public MetaRule(){
-		referenceNodeList = new ArrayList<>();
-		cacheDataKey = new HashSet<>();
+		referenceNodeList = new CopyOnWriteArrayList<>();
+		cacheDataKey = Collections.synchronizedSet(new HashSet<>());
 	}
 
 }

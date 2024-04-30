@@ -9,6 +9,8 @@ import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
 import ca.uhn.fhir.jpa.starter.transfor.config.TransformDataOperationConfigProperties;
 import ca.uhn.fhir.jpa.starter.transfor.base.reference.structure.ReferenceDataMatcher;
 import ca.uhn.fhir.jpa.starter.transfor.base.reference.structure.ReferenceDataSet;
+import ca.uhn.fhir.jpa.starter.transfor.dto.comm.ResponseDto;
+import ca.uhn.fhir.jpa.starter.transfor.operation.code.ResponseStateCode;
 import ca.uhn.fhir.jpa.starter.transfor.service.client.CmcTransforService;
 import ca.uhn.fhir.jpa.starter.transfor.service.client.CmcTransforServiceImpl;
 import ca.uhn.fhir.jpa.starter.transfor.util.TransformUtil;
@@ -18,6 +20,7 @@ import ca.uhn.fhir.rest.annotation.Operation;
 import ca.uhn.fhir.rest.api.SearchTotalModeEnum;
 import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.param.StringParam;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.*;
 import org.apache.commons.io.IOUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
@@ -41,6 +44,8 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 	private static final Logger ourLog = LoggerFactory.getLogger(ResourceTransformClientTypeProvider.class);
 
 	private DaoRegistry myDaoRegistry;
+
+	private String resultStackLocationStr = "E:\\python\\20240329_FHIR 생성과정간 속도비교 구성(Client vs Threading MAP)\\";
 
 	@Autowired
 	void setMyDaoRegistry(DaoRegistry myDaoRegistry){
@@ -90,7 +95,9 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 		String retMessage = "-";
 		ourLog.info(" > Create CMC Standard Data Transfor initalized.. ");
 
+		int createdResourceCount = 0;
 		FhirContext fn = this.getContext();
+		Bundle bundle = new Bundle();
 		timer = new PerformanceChecker(transformDataOperationConfigProperties.isDebugPerformanceTrackingTimeEach(), transformDataOperationConfigProperties.isDebugPerformancePrintOperationTimeStack());
 		try {
 			byte[] bytes = IOUtils.toByteArray(theServletRequest.getInputStream());
@@ -107,18 +114,29 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 			Map<String, String> noSearchArg = new HashMap<>();
 			noSearchArg.put("Don't Search Main Volumns", "9999999");
 			referenceDataMatcher.inputMappingData("Standard-Ref", noSearchArg, new HashMap<>());
+
 			while(sortedQueue.size() != 0){
 				Map.Entry<String, JsonElement> entry = sortedQueue.poll();
-
-				this.createResource(entry);
+				Bundle.BundleEntryComponent component = new Bundle.BundleEntryComponent();
+				List<Resource> resourceList = this.createResource(entry);
+				for(Resource eachReseource : resourceList){
+					component.setResource(eachReseource);
+					bundle.addEntry(component);
+				}
+				createdResourceCount = createdResourceCount + resourceList.size();
 			}
 
+			String retBundle = fn.newJsonParser().encodeResourceToString(bundle);
+			ResponseDto<String> responseDto = ResponseDto.<String>builder().success(ResponseStateCode.OK.getSuccess()).stateCode(ResponseStateCode.OK.getStateCode()).errorReason("-").body(retBundle).createCount(createdResourceCount).build();
+			ObjectMapper mapper = new ObjectMapper();
+			String jsonStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseDto);
+			retMessage = jsonStr;
 		}catch(Exception e){
 			e.printStackTrace();
 			retMessage = e.getMessage();
 		}finally{
-			timer.printAllTimeStack();
-			timer.exportStackToExcel("C:\\Client-Test-Data" + this.getCurrentDateTime() + ".xlsx");
+			double duration = timer.printAllTimeStack();
+			timer.exportStackToExcel(resultStackLocationStr+"\\client\\Client-Test-Data-" + this.getCurrentDateTime() + "-" + duration + "-" + createdResourceCount +".xlsx");
 
 			theResponse.setContentType("text/plain");
 			theResponse.getWriter().write(retMessage);
@@ -142,7 +160,6 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 		String retMessage = "-";
 		ourLog.info(" > Create CMC Standard Data Transfor initalized.. ");
 
-
 		try {
 			byte[] bytes = IOUtils.toByteArray(theServletRequest.getInputStream());
 			String bodyData = new String(bytes);
@@ -168,7 +185,7 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 			retMessage = e.getMessage();
 		}finally{
 			timer.printAllTimeStack();
-			timer.exportStackToExcel("C:\\Client-Test-Data" + this.getCurrentDateTime() + ".xlsx");
+			timer.exportStackToExcel(resultStackLocationStr+"\\client\\Client-Test-Data" + this.getCurrentDateTime() + ".xlsx");
 
 			theResponse.setContentType("text/plain");
 			theResponse.getWriter().write(retMessage);
@@ -177,12 +194,14 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 	}
 
 	// 리소스를 생성한다.
-	private void createResource(Map.Entry<String, JsonElement> entry){
+	private List<Resource> createResource(Map.Entry<String, JsonElement> entry){
 		JsonElement elements = entry.getValue();
 		JsonArray jsonArray = elements.getAsJsonArray();
+		List<Resource> createdResourceList = new ArrayList<>();
 
 		for(int eachRowCount = 0; jsonArray.size() > eachRowCount; eachRowCount++){
 			JsonObject eachRowJsonObj = jsonArray.get(eachRowCount).getAsJsonObject();
+			//System.out.println("!!!!!!!!!!!!!!!!!! " + eachRowJsonObj.toString());
 			Map<String, String> rowMap = TransformUtil.convertJsonObjectToMap(eachRowJsonObj);
 			if ("organization".equals(entry.getKey())) {
 				timer.startTimer();
@@ -198,6 +217,7 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 
 				timer.endTimer("Create Organization...");
 				loggingInDebugMode("organ : " + fn.newJsonParser().encodeResourceToString(organization));
+				createdResourceList.add(organization);
 			} else if ("patient".equals(entry.getKey())) {
 				timer.startTimer();
 				ourLog.info("-------------------------- Patient");
@@ -210,6 +230,7 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 				resourceProviderForPatient.update(patient);
 				loggingInDebugMode("patient : " + fn.newJsonParser().encodeResourceToString(patient));
 				timer.endTimer("Create Patient...");
+				createdResourceList.add(patient);
 			} else if ("practitioner".equals(entry.getKey())) {
 				timer.startTimer();
 				ourLog.info("-------------------------- practition Data");
@@ -227,11 +248,12 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 
 				loggingInDebugMode("practitioner Data : " + fn.newJsonParser().encodeResourceToString(practitioner));
 				timer.endTimer("Create Practition...");
+				createdResourceList.add(practitioner);
 			}else if("practitionerrole".equals(entry.getKey())) {
 				ourLog.info("-------------------------- Practitioner Role");
 				timer.startTimer();
 				String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("Organization").getReference();
-				String practitionerId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("PRCT." + organizationId + "." + rowMap.get("ord_dr_id")).getReference();
+				String practitionerId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("PRCT." + organizationId + "." + rowMap.get("dr_id")).getReference();
 
 				PractitionerRole practitionerRole = cmcTransforService.transformPlatDataToFhirPractitionerRole(organizationId, practitionerId, rowMap);
 				referenceDataMatcher.setReference("Standard-Ref", practitionerRole.getId(), new Reference(practitionerRole.getId()));
@@ -242,14 +264,15 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 
 				loggingInDebugMode("practitionRole Data : " + fn.newJsonParser().encodeResourceToString(practitionerRole));
 				timer.endTimer("Create PractitionRole...");
+				createdResourceList.add(practitionerRole);
 			}else if ("encounter".equals(entry.getKey())) {
 				ourLog.info("-------------------------- Encounter");
 				timer.startTimer();
 
 				String organizationId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("Organization").getReference();
 				String patientId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("Patient").getReference();
-				String practitionerRoleId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("PROL." + organizationId + "." + rowMap.get("ord_dr_id")).getReference();
-				String practitionerId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("PRCT." + organizationId + "." + rowMap.get("ord_dr_id")).getReference();
+				String practitionerRoleId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("PROL." + organizationId + "." + rowMap.get("dr_id")).getReference();
+				String practitionerId = referenceDataMatcher.getMappingData().get("Standard-Ref").getReferenceList().get("PRCT." + organizationId + "." + rowMap.get("dr_id")).getReference();
 
 				Encounter encounter = cmcTransforService.transformPlatDataToFhirEncounter(organizationId, practitionerRoleId, patientId, rowMap);
 
@@ -275,6 +298,7 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 				//resourceProviderForEncounter.update(encounter);
 
 				loggingInDebugMode("encounter Data : " + fn.newJsonParser().encodeResourceToString(encounter));
+				createdResourceList.add(encounter);
 				timer.endTimer("Create Encounter...");
 			} else if("condition".equals(entry.getKey())){
 				ourLog.info("-------------------------- Condition");
@@ -316,6 +340,7 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 
 				referenceDataMatcher.setReference(identifiedRefer, condition.getIdentifier().get(0).getValue(), new Reference(condition.getIdPart()));
 				loggingInDebugMode("condition Data : " + fn.newJsonParser().encodeResourceToString(condition));
+				createdResourceList.add(condition);
 				timer.endTimer("Create Condition...");
 			}else if("medicationrequest".equals(entry.getKey())){
 				ourLog.info("-------------------------- medicationrequest");
@@ -357,6 +382,7 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 				//resourceProviderForMedication.update(medication);
 
 				loggingInDebugMode("Medication : " + cmcTransforService.retResourceToString(medication));
+				createdResourceList.add(medication);
 
 				// 2. 대상 리소스 생성요청
 				MedicationRequest medicationReqeust =  cmcTransforService.transformPlatDataToFhirMedicationRequest(organizationId, patientId, practitionerRoleId, encounterId, rowMap);
@@ -365,7 +391,7 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 				// 아이디 부여가 없는 경우 create
 				//IFhirResourceDao resourceProviderForMedicationRequest = myDaoRegistry.getResourceDao("MedicationRequest");
 				//resourceProviderForMedicationRequest.update(medicationReqeust);
-
+				createdResourceList.add(medicationReqeust);
 				loggingInDebugMode("MedicationRequest : " + cmcTransforService.retResourceToString(medicationReqeust));
 				timer.endTimer("Create MedicationRequest...");
 			}else if("observation".equals(entry.getKey())){
@@ -402,7 +428,7 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 				Observation observation = cmcTransforService.transformPlatDataToFhirObservation(organizationId, patientId, encounterId, rowMap);
 				//IFhirResourceDao resourceProviderForServiceRequest = myDaoRegistry.getResourceDao("Observation");
 				//resourceProviderForServiceRequest.update(observation);
-
+				createdResourceList.add(observation);
 				loggingInDebugMode("Observation Request : " + cmcTransforService.retResourceToString(observation));
 				timer.endTimer("Create MedicationRequest...");
 			}else if("observation-exam".equals(entry.getKey())){
@@ -440,6 +466,7 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 				//IFhirResourceDao resourceProviderForServiceRequest = myDaoRegistry.getResourceDao("Observation");
 				//resourceProviderForServiceRequest.update(observation);
 
+				createdResourceList.add(observation);
 				loggingInDebugMode("Observation Request : " + cmcTransforService.retResourceToString(observation));
 				timer.endTimer("Create Observation Exam...");
 			}else if("medication".equals(entry.getKey())){
@@ -483,9 +510,37 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 				//IFhirResourceDao resourceProviderForServiceRequest = myDaoRegistry.getResourceDao("DiagnosticReport");
 				//resourceProviderForServiceRequest.update(diagnosticReport);
 
+				createdResourceList.add(diagnosticReport);
 				loggingInDebugMode("diagnosticReport-pathology Request : " + cmcTransforService.retResourceToString(diagnosticReport));
 				timer.endTimer("Create DiagnosticReport-pathology...");
-			}else if("diagnosticreport-radiology".equals(entry.getKey())){
+			}else if("diagnosticreport-lab".equals(entry.getKey())) {
+				ourLog.info("-------------------------- diagnosticreport-lab");
+				timer.startTimer();
+				LinkedHashMap<String, String> identifierSet = new LinkedHashMap<>();
+				identifierSet.put("inst_cd", rowMap.get("inst_cd"));
+				identifierSet.put("pid", rowMap.get("pid"));
+				identifierSet.put("ord_dd", rowMap.get("ord_dd"));
+				identifierSet.put("ord_dept_cd", rowMap.get("ord_dept_cd"));
+				identifierSet.put("ord_dr_id", rowMap.get("ord_dr_id"));
+				identifierSet.put("cret_no", rowMap.get("cret_no"));
+				identifierSet.put("ord_type_cd", rowMap.get("io_flag"));
+				ReferenceDataSet ds = referenceDataMatcher.searchMapperWithMapType(identifierSet);
+
+				String organizationId = "-";
+				String patientId = "-";
+				String encounterId = "-";
+				String practitionerRoleId = "-";
+				if (ds != null) {
+					organizationId = ds.getReferenceList().get("Organization").getReference();
+					patientId = ds.getReferenceList().get("Patient").getReference();
+					encounterId = ds.getReferenceList().get("Encounter").getReference();
+					practitionerRoleId = ds.getReferenceList().get("PractitionerRole").getReference();
+				}
+
+				DiagnosticReport diagnosticReport = cmcTransforService.transformPlatDataToFhirDiagnosticReportRadiology(organizationId, patientId, encounterId, rowMap);
+
+				timer.endTimer("Create diagnosticreport-lab...");
+			}else if("diagnosticreport-image".equals(entry.getKey())){
 				ourLog.info("-------------------------- diagnosticreport-radiology");
 				timer.startTimer();
 				// 병리
@@ -522,6 +577,7 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 				//IFhirResourceDao resourceProviderForServiceRequest = myDaoRegistry.getResourceDao("DiagnosticReport");
 				//resourceProviderForServiceRequest.update(diagnosticReport);
 
+				createdResourceList.add(diagnosticReport);
 				loggingInDebugMode("diagnosticReport-radiology Request : " + cmcTransforService.retResourceToString(diagnosticReport));
 				timer.endTimer("Create DiagnosticReport-radiology...");
 			}else if("procedure".equals(entry.getKey())){
@@ -558,6 +614,7 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 				//IFhirResourceDao resourceProviderForProcedure = myDaoRegistry.getResourceDao("Procedure");
 				//resourceProviderForProcedure.update(procedure);
 
+				createdResourceList.add(procedure);
 				loggingInDebugMode("Procedure Request : " + cmcTransforService.retResourceToString(procedure));
 				timer.endTimer("Create Procedure...");
 			}else if ("serviceRequest".equals(entry.getKey())) {
@@ -601,6 +658,7 @@ public class ResourceTransformClientTypeProvider extends BaseJpaProvider {
 				loggingInDebugMode(" >>>>> UN Develops Resource : " + entry.getKey());
 			}
 		}
+		return createdResourceList;
 	}
 
 	// Mapping 의 값이 Matcher 에 존재하지 않으면, FHIR 에서 해당 Encounter 에서 데이터를 가져와서 Matcher에 등록시킨다.

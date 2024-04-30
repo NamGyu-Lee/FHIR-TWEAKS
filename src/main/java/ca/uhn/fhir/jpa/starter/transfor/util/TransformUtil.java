@@ -311,6 +311,7 @@ public class TransformUtil {
 				retString = retString + eachLine + "\n";
 			}
 
+			inputStream.close();
 			ourLog.debug("map to String : " + retString);
 			ourLog.info("-----------------------------");
 
