@@ -9,11 +9,6 @@
     * target = Organization
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-   * referenceResource
-    * target = Practitioner
-    * depend_policy = exception
-    * inst_cd -> inst_cd :: -
-    * dr_id -> dr_id :: -
 -----
 * resourceType='PractitionerRole'
 * id=(KEY)MERGE(Organization_id, '.', subj_id)
@@ -23,8 +18,6 @@
 * identifier
  * system=Organization_id
  * value=dr_id
-* practitioner
- * reference=MERGE('Practitioner/', Practitioner_id)
 * (specialty).specialty
  * (coding).coding
   * system='https://hira.or.kr/CodeSystem/medical-subject'

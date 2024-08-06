@@ -57,8 +57,8 @@ COPY  --from=build-distroless /app /app
 COPY  --from=build-hapi /tmp/hapi-fhir-jpaserver-starter/opentelemetry-javaagent.jar /app
 
 # Non APM
-#ENTRYPOINT ["java", "--class-path", "/app/main.war", "-Dloader.path=main.war!/WEB-INF/classes/,main.war!/WEB-INF/,/app/extra-classes", "org.springframework.boot.loader.PropertiesLauncher"]
+ENTRYPOINT ["java", "--class-path", "/app/main.war", "-Dloader.path=main.war!/WEB-INF/classes/,main.war!/WEB-INF/,/app/extra-classes", "org.springframework.boot.loader.PropertiesLauncher"]
 
 # PinPoint apm
-COPY pinpoint-agent-2.5.3 /pinpoint-agent
-ENTRYPOINT ["java", "-javaagent:/pinpoint-agent/pinpoint-bootstrap-2.5.3.jar", "-Dpinpoint.agentId=fhir-web", "-Dpinpoint.applicationName=PHIS-FHIR-Server", "--class-path", "/app/main.war", "-Dloader.path=main.war!/WEB-INF/classes/,main.war!/WEB-INF/,/app/extra-classes", "org.springframework.boot.loader.PropertiesLauncher"]
+#COPY pinpoint-agent-2.5.3 /pinpoint-agent
+#ENTRYPOINT ["java", "-javaagent:/pinpoint-agent/pinpoint-bootstrap-2.5.3.jar", "-Dpinpoint.agentId=fhir-web", "-Dpinpoint.applicationName=PHIS-FHIR-Server", "--class-path", "/app/main.war", "-Dloader.path=main.war!/WEB-INF/classes/,main.war!/WEB-INF/,/app/extra-classes", "org.springframework.boot.loader.PropertiesLauncher"]

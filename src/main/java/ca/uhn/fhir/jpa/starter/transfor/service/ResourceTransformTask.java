@@ -94,7 +94,7 @@ public class ResourceTransformTask implements Callable<IBaseResource>{
 			}catch(Exception e){
 				e.printStackTrace();
 				if(metaRule.getErrorHandleType().equals(ErrorHandleType.EXCEPTION)){
-					throw new IllegalArgumentException("[ERR] 데이터 형변환 과정에서 오류가 발생하였습니다.");
+					throw new IllegalArgumentException("[ERR]" + e.getMessage());
 				}else if(metaRule.getErrorHandleType().equals(ErrorHandleType.WARNING)){
 					ourLog.warn("[WARN] 데이터 형변환 과정에서 오류가 발생하였습니다. " + e.getMessage());
 				}

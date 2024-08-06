@@ -24,11 +24,6 @@
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
     * rcpt_no -> rcpt_no :: -
-   * referenceResource
-    * target = Medication
-    * depend_policy = warning
-    * inst_cd -> inst_cd :: -
-    * drug_cd -> drug_cd :: -
 -----
 * resourceType='MedicationRequest'
 * id=(KEY)MERGE('MR', '.', Organization_id, '.', seq_no)

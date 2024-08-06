@@ -9,11 +9,6 @@
     * target = Organization
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
-   * referenceResource
-    * target = Practitioner
-    * depend_policy = exception
-    * inst_cd -> inst_cd :: -
-    * dr_id -> dr_id :: -
 -----
 * resourceType='PractitionerRole'
 * id=(KEY)MERGE(Organization_id, '.', subj_id)
@@ -22,9 +17,7 @@
   * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-medical-doctor-role'
 * identifier
  * system=Organization_id
- * value=dr_id
-* practitioner
- * reference=MERGE('Practitioner/', Practitioner_id)
+ * value=subj_id
 * (specialty).specialty
  * (coding).coding
   * system='http://www.hl7korea.or.kr/CodeSystem/hira-medical-department'

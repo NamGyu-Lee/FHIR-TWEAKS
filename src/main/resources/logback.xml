@@ -82,7 +82,7 @@
 		<appender-ref ref="FILE-ERROR"/>
 	</logger>
 
-	<root level="WARN">
+	<root level="INFO">
 		<appender-ref ref="STDOUT" />
 		<appender-ref ref="FILE-INFO"/>
 		<appender-ref ref="FILE-WARN"/>

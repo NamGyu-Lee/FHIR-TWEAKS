@@ -48,13 +48,13 @@
 * effectiveDateTime=DATE(insp_dt, 'yyyyMMdd', 'yyyy-MM-dd')
 * valueQuantity
  * value=TYPE(insp_rslt, 'NUMBER', insp_rslt, '')
- * unit=NVL(unit, "")
+ * unit=NVL(unit, '-')
 * valueString
  * value=TYPE(insp_rslt, 'NUMBER', '', insp_rslt)
 * (referenceRange).referenceRange
  * low
-  * value=NVL(up_ref_val, "")
-  * unit=NVL(up_ref_unit, "")
+  * value=NVL(up_ref_val, '')
+  * unit=NVL(up_ref_unit, '')
  * high
-  * value=NVL(lwer_ref_val, "")
-  * unit=NVL(lwer_ref_unit, "")
+  * value=NVL(lwer_ref_val, '')
+  * unit=NVL(lwer_ref_unit, '')

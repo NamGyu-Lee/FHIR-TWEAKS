@@ -445,7 +445,7 @@ public class TransformEngine{
 			// 키가 없는 경우에만 활용하기
 			// resource.setId(generatorIdentifierForResource(resource.fhirType()));
 
-			ourLog.info("FHIR Resource 변환 결과 : " + retJsonObject.toString());
+			ourLog.info("FHIR Resource 변환 결과 : " + resource.toString());
 			ourLog.info("-------------------------------------------------------------- 데이터 생성 종료...");
 
 			return resource;

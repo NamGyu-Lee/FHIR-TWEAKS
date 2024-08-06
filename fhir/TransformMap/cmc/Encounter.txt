@@ -19,6 +19,11 @@
     * depend_policy = exception
     * inst_cd -> inst_cd :: -
     * pat_id -> pat_id :: -
+   * referenceResource
+    * target = Practitioner
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * subj_id -> subj_id :: -
 -----
 * resourceType='Encounter'
 * id=(KEY)MERGE(Organization_id, '.', rcpt_no)

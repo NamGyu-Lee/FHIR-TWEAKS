@@ -37,17 +37,17 @@
 * (category).category
  * (coding).coding
   * system='http://terminology.hl7.org/CodeSystem/v2-0074'
-  * value=insp_div
+  * code=insp_div
 * code
  * (coding).coding
   * system='http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure'
   * code=insp_cd
   * display=insp_nm
- * text=insp_txt
+ * text=insp_nm
 * subject
  * reference=MERGE('Patient/', Patient_id)
 * encounter
  * reference=MERGE('Encounter/',Encounter_id)
-* effectiveDateTime=DATE(test_dt, 'yyyyMMdd', 'yyyy-MM-dd')
+* effectiveDateTime=DATE(insp_dt, 'yyyyMMdd', 'yyyy-MM-dd')
 * conclusion=insp_rslt
 * issued=DATE(insp_dt, 'yyyyMMdd', 'yyyy-MM-dd')

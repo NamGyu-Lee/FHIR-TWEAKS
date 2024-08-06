@@ -64,8 +64,11 @@ public class MetaEngine {
 					if(searchedCacheResource == null){
 						if(transformDataOperationConfigProperties.isSearchReferenceinRepoEnabled()){
 								// 2. FHIR Resource에서 조회
-								throw new IllegalArgumentException("[ERR] 해당 리소스의 레퍼런스가 캐시/Repo 내 조회되지 않아 오류가 발생하였습니다. "  + refnode.getTargetResource());
-
+								String exceptCacheKeyList = "";
+								for(ReferenceParamNode eachParamNode : refnode.getReferenceParamNodeList()){
+									exceptCacheKeyList =  exceptCacheKeyList + " " + eachParamNode.getCacheTargetStr();
+								}
+								throw new IllegalArgumentException("[ERR] 해당 리소스의 레퍼런스가 캐시/Repo 내 조회되지 않아 오류가 발생하였습니다. "  + refnode.getTargetResource() + " 의 대하여 " + exceptCacheKeyList);
 								// 적재형인 경우 활용
 								// this.findResourceInRepo(refnode, source);
 						}else{
