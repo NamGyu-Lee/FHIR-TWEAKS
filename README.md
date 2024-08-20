@@ -44,15 +44,15 @@ Research paper link:
 ---
 
 3. FHIR Repository with APM (PinPoint)
-if you want to use the APM
-check the dockerfile in this project
+if you want to use the APM check the dockerfile in this project
 
-# PinPoint apm
 ```
 ...
 COPY pinpoint-agent-2.5.3 /pinpoint-agent
 ENTRYPOINT ["java", "-javaagent:/pinpoint-agent/pinpoint-bootstrap-2.5.3.jar", "-Dpinpoint.agentId=fhir-web", "-Dpinpoint.applicationName=PHIS-FHIR-Server", "--class-path", "/app/main.war", "-Dloader.path=main.war!/WEB-INF/classes/,main.war!/WEB-INF/,/app/extra-classes", "org.springframework.boot.loader.PropertiesLauncher"]
 ```
+
+All settings have already been configured, and you can proceed as described above. For low-performance Server or Client, you can replace the line with the one commented out above
 
 ---
 
