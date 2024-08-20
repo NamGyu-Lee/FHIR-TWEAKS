@@ -39,7 +39,30 @@ Research paper link:
 ---
 
 2. Terminology Server
--- Under construction
+If you need to configure the FHIR Terminology server, refer to the following source in the application.yaml
+
+```
+service:
+  terminology:
+    ig:
+      location: /app/ig/structure
+      examplelocation: /app/ig/example
+    common:
+      ig: # Due to the heavy load during the process of adding the Implementation Guide (IG), a timeout has been added
+        timeout: 3000000
+      paging:
+        defaultsize: 100
+        maxsize: 1000
+        fifosize: 320
+      search:
+        summary:
+          codesystem: true
+          valueset: true
+          searchparameter: true
+```
+
+
+You can configure the Implementation Guide by uploading it from a local or external server using the following settings.
 
 ---
 
@@ -57,4 +80,3 @@ All settings have already been configured, and you can proceed as described abov
 ---
 
 4. Easy-to-Use Validation Service
--- Under construction
