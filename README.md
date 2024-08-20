@@ -1,50 +1,52 @@
-## 2023. 10. FHIR Terminology Server with HAPI FHIR 
-#### HAPI FHIR 6.8.3(https://github.com/hapifhir/hapi-fhir-jpaserver-starter)을 기반으로 
-#### 국내 FHIR서비스에 적절히 맞도록 
-#### 쉽게 구축 할 수 있도록 아래의 기능별로 구현하였다.
+### FHIR TWEAKS(Transform data With Easy And Kind Services)
+
+Based on HAPI FHIR 6.8.3 (https://github.com/hapifhir/hapi-fhir-jpaserver-starter).
+This tool is released as a study to help various institutions, companies, and individuals, including hospitals that find FHIR challenging, to easily and quickly utilize and transform their data.
+By leveraging this library, EMR systems and various medical data transformation tasks can be easily established with the following functionalities implemented as libraries.
+
+#### 1. Data Transform
+#### 2. Terminology Server
+#### 3. FHIR Repository with APM(with PinPoint)
+#### 4. Easy-to-Use Validation Service
 
 ---
-#### 1. FHIR Terminology Service
-##### 
-   1) Implement Guide 적용
-    - 기본적인 IG 적용 패턴 및 방법 정의
-    - 대용량 CodeSystem의 대한 적용
-    - 원내 자체적인 CodeSystem의 대한 적용
+1. Data Transform
+This functionality started from a study on how to transform EMR data into FHIR quickly and easily while maintaining its structure.
 
-   3) 국내 의료환경에 부합하는 ConceptMap 구성
+The requirements to utilize this tool are as follows:
 
-   4) MSA 기반의 Terminology 서비스 구성
+* 1. StructureDefinition of the FHIR IG (Implementation Guide) to be transformed
+* 2. A basic understanding of FHIR
+* 3. A detailed understanding of the data used in the EMR system you wish to transform
+* 4. Hardware with specifications capable of running HAPI FHIR properly
+After forking this project, use Docker-compose to start the server and utilize it as follows:
 
----
-#### 2. FHIR Validation Service
-##### 
-   1) Validation 적용 및 활용
+```bash
+docker-compose up -d
+```
 
-   2) MSA 기반의 Validation Server 구성
+If it is active, then read this page for use it.
 
----
-#### 3. FHIR Transform Data Service
-#####
-   1) Transform Map 구성
+Tutorial page this here : 
 
-   2) Transform 수행
 
----
-#### 4. FHIR Multi-tenant & 접근제어
-##### 
-   1) Multitenant 관리 및 Database size 관리
 
-   2) 사용자 접근제어 관리
+※ For detailed functionality and operation methods, please refer to the research paper below.
+
+Research paper link: 
+
 
 ---
-#### 5. 사용자 활용
-#####
-   1) FHIR Data의 대한 User 가독성 처리
+
+2. Terminology Server
+-- Under construction
 
 ---
-#### 6. 관리
-#####
-   1) HAPI FHIR Server 의 대한 Actuator 설정 및 예시
 
-   2) HAPI FHIR Server 의 Search Engine 활용(ElasticSearch)
+3. FHIR Repository with APM (PinPoint)
+-- Under construction
 
+---
+
+4. Easy-to-Use Validation Service
+-- Under construction
