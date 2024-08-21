@@ -1,0 +1,55 @@
+# 2024. 03. 22. CMC 기반 PHR DB Base의 변환을 위한 Transform Map
+* metadata
+ * mapping
+  * error_policy = exception
+  * cacheKey = inst_cd, seq_no
+  * mergeKey = -
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+   * referenceResource
+    * target = PractitionerRole
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * subj_id -> subj_id :: -
+   * referenceResource
+    * target = Patient
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * pat_id -> pat_id :: -
+   * referenceResource
+    * target = Encounter
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * rcpt_no -> rcpt_no :: -
+-----
+* resourceType='Condition'
+* id=(KEY)MERGE(Organization_id, '.',  seq_no)
+* meta
+ * (profile).profile
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-condition-encounter-diagnosis'
+* identifier
+ * system=Organization_id
+ * value=MERGE(Organization_id, '.',  seq_no)
+* clinicalStatus
+ * (coding).coding
+  * system='http://terminology.hl7.org/CodeSystem/condition-clinical'
+  * code=diag_stcd
+* category
+ * (coding).coding
+  * system='http://www.hl7korea.or.kr/fhir/krcore/CodeSystem/krcore-condition-category-types'
+  * code='진단'
+* code
+ * (coding).coding
+  * system='http://www.hl7korea.or.kr/CodeSystem/kostat-kcd-8'
+  * code=diag_cd
+  * display=diag_nm
+* subject
+ * reference=MERGE('Patient/', Patient_id)
+* encounter
+ * reference=MERGE('Encounter/',Encounter_id)
+* recordedDate=DATE(medi_bgng_ymd, 'yyyyMMdd', 'yyyy-MM-dd')
+* recorder
+ * reference=MERGE('PractitionerRole/',PractitionerRole_id)

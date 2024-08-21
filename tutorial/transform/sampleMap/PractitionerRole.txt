@@ -1,0 +1,30 @@
+# 2024. 03. 22. CMC 기반 PHR DB Base의 변환을 위한 Transform Map
+* metadata
+ * mapping
+  * error_policy = exception
+  * cacheKey = inst_cd, subj_id
+  * mergeKey = -
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+-----
+* resourceType='PractitionerRole'
+* id=(KEY)MERGE(Organization_id, '.', subj_id)
+* meta
+ * (profile).profile
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-medical-doctor-role'
+* identifier
+ * system=Organization_id
+ * value=dr_id
+* (specialty).specialty
+ * (coding).coding
+  * system='https://hira.or.kr/CodeSystem/medical-subject'
+  * code=subj_cd
+  * display=subj_nm
+* (code).code
+ * (coding).coding
+  * system='http://terminology.hl7.org/CodeSystem/practitioner-role'
+  * code='doctor'
+  * display='Doctor'

@@ -1,0 +1,39 @@
+# 2024. 03. 22. Transform Map for Hospital Based EMR DataStructure
+* metadata
+ * mapping
+  * error_policy = exception
+  * cacheKey = inst_cd, seq_no # Key Column of Unique Information in EMR System
+  * mergeKey = edi_cd, vcn_nm
+  # Definition for Retrieving Values Used as References Id
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception # Policy Setting for Cases Without References
+    * inst_cd -> inst_cd :: -
+   * referenceResource
+    * target = Patient
+    * depend_policy = exception # Policy Setting for Cases Without References
+    * inst_cd -> inst_cd :: -
+    * pat_id -> pat_id :: -
+-----
+* resourceType='Immunization'
+* id=(KEY)MERGE(Organization_id, '.', seq_no)
+* meta
+ * (profile).profile
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-immunization'
+* identifier
+ * system=Organization_id
+ * value=MERGE(Organization_id, '.', seq_no)
+* status='completed'
+* vaccineCode
+ * (coding).coding
+  * system='http://www.hl7korea.or.kr/CodeSystem/kpis-kdcode'
+  * code=edi_cd   # EDI Code
+  * display=vcn_nm # EDI Display
+ * text=vcn_nm # Vaccine Name in Hospital
+* patient
+ * reference=MERGE('Patient/' , Patient_id)
+* occurrenceDateTime=DATE(vcn_dte, 'yyyyMMdd', 'yyyy-MM-dd') # Vaccination Date.
+* (protocolApplied).protocolApplied
+ * doseNumberPositiveInt=vcn_tme # Vaccine Dose Number
+

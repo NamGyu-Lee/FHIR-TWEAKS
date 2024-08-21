@@ -1,0 +1,37 @@
+# 2024. 03. 22. CMC 기반 PHR DB Base의 변환을 위한 Transform Map
+* metadata
+ * mapping
+  * error_policy = exception
+  * cacheKey = inst_cd, pat_id
+  * mergeKey = telno
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+-----
+* resourceType='Patient'
+* id=(KEY)MERGE(Organization_id, '.', pat_id)
+* meta
+ * (profile).profile
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-patient'
+* (identifier).identifier
+ * type
+  * (coding).coding
+   * system='http://terminology.hl7.org/CodeSystem/v2-0203-1'
+   * code='MR'
+ * system='http://www.hl7korea.or.kr/Identifier/hira-krnpi'
+ * value=MERGE(Organization_id, '.', pat_id)
+* active='true'
+* (name).name
+ * text=pat_flnm
+* (telecom).telecom
+ * system=NVL(telType, 'phone')
+ * value=telno
+* gender=CASE(sex_cd, 'male', 'male', 'female', 'female', 'unknown', 'unknown')
+* birthDate=DATE(brdt, 'yyyyMMdd', 'yyyy-MM-dd')
+* (address).address
+ * text=addr
+ * postalCode=zip
+* managingOrganization
+ * reference=MERGE('Organization/', Organization_id)

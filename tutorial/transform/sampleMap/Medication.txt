@@ -1,0 +1,31 @@
+# 2024. 03. 22. CMC 기반 PHR DB Base의 변환을 위한 Transform Map
+* metadata
+ * mapping
+  * error_policy = exception
+  * cacheKey = inst_cd, seq_no, drug_cd
+  * mergeKey = com_cd, com_nm
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+-----
+* resourceType='Medication'
+* id=(KEY)MERGE(Organization_id, '.', seq_no)
+* meta
+ * (profile).profile
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-medication'
+* identifier
+ * system=Organization_id
+ * value=seq_no
+* code
+ * (coding).coding
+  * system='http://www.hl7korea.or.kr/CodeSystem/hira-edi-medication'
+  * code=rx_cd
+  * display=rx_txt
+* ingredient
+ * itemCodeableConcept
+  * (MERGE)(coding).coding
+   * system='http://www.whocc.no/atc'
+   * code=com_cd
+   * display=com_nm

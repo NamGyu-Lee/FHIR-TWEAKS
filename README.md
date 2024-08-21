@@ -33,7 +33,6 @@ Tutorial page this here : [tutorial pages](tutorial/transform/1.introduction.md)
 
 Research paper link: ~~[Research Page](not)~~
 
-
 ---
 
 2. Terminology Server

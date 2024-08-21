@@ -1,0 +1,39 @@
+# 2024. 03. 22. CMC 기반 PHR DB Base의 변환을 위한 Transform Map
+* metadata
+ * mapping
+  * error_policy = exception
+  * cacheKey = inst_cd, seq_no
+  * mergeKey = -
+  * referenceData
+   * referenceResource
+    * target = Organization
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+   * referenceResource
+    * target = PractitionerRole
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * subj_id -> subj_id :: -
+   * referenceResource
+    * target = Patient
+    * depend_policy = exception
+    * inst_cd -> inst_cd :: -
+    * pat_id -> pat_id :: -
+-----
+* resourceType='Procedure'
+* id=(KEY)MERGE('PD', '.', Organization_id, '.', seq_no)
+* state=srg_st
+ * (profile).profile
+  * 'http://www.hl7korea.or.kr/fhir/krcore/StructureDefinition/krcore-procedure'
+* identifier
+ * system=Organization_id
+ * value=MERGE('PD', '.', Organization_id, '.', seq_no)
+* code
+ * (coding).coding
+  * system='http://www.hl7korea.or.kr/CodeSystem/hira-edi-procedure'
+  * code=srg_cd
+  * display=srg_nm
+ * text=srg_nm
+* performedDateTime=DATE(srg_dt, 'yyyyMMdd', 'yyyy-MM-dd')
+* subject
+ * reference=MERGE('Patient/', Patient_id)
