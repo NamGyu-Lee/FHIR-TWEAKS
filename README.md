@@ -27,13 +27,11 @@ docker-compose up -d
 
 If it is active, then read this page for use it.
 
-Tutorial page this here : 
-
-
+Tutorial page this here : [tutorial pages](tutorial/transform/1.introduction.md)
 
 ※ For detailed functionality and operation methods, please refer to the research paper below.
 
-Research paper link: 
+Research paper link: ~~[Research Page](not)~~
 
 
 ---
